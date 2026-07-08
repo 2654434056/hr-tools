@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>面试评估打分表</title>
+<style>
+  :root{
+    --green:#00a05a; --green-d:#00864b; --blue:#2f6fed;
+    --bg:#f4f7f6; --card:#fff; --ink:#1d2b26; --sub:#6b7d76; --line:#e4ebe8;
+    --shadow:0 6px 24px rgba(0,90,60,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+  header{background:linear-gradient(120deg,var(--green),#19b86e);color:#fff;padding:22px 20px}
+  header h1{margin:0;font-size:20px;letter-spacing:.5px}
+  header p{margin:4px 0 0;opacity:.9;font-size:13px}
+  .wrap{max-width:1000px;margin:0 auto;padding:18px}
+  .card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:18px}
+  .card h2{margin:0 0 14px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card h2::before{content:"";width:4px;height:16px;background:var(--green);border-radius:3px}
+  label{font-size:13px;color:var(--sub)}
+  input[type=text]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-size:14px;background:#fbfdfc}
+  input[type=text]:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(0,160,90,.12)}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th,td{padding:8px 8px;text-align:center;border-bottom:1px solid var(--line)}
+  th{color:var(--sub);font-weight:600;background:#fafdfb}
+  td.dim{text-align:left;font-weight:600}
+  .wbox{display:flex;align-items:center;gap:6px;justify-content:center}
+  .wbox input{width:62px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;text-align:center}
+  input.score{width:64px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;text-align:center;font-weight:600}
+  input.score:focus{outline:none;border-color:var(--green)}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  button{border:none;border-radius:9px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:600;transition:.15s;background:var(--green);color:#fff}
+  button:hover{background:var(--green-d)}
+  button.ghost{background:#eef4f1;color:var(--green-d)}
+  button.ghost:hover{background:#e2ece8}
+  button.sm{padding:5px 11px;font-size:12px}
+  .result{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:6px}
+  .stat{background:#fafdfb;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+  .stat .num{font-size:30px;font-weight:800;color:var(--green-d)}
+  .stat .lbl{font-size:12px;color:var(--sub);margin-top:2px}
+  .verdict{font-size:18px;font-weight:800;padding:6px 18px;border-radius:30px;display:inline-block}
+  .v-ok{background:#eafaf1;color:var(--green-d)}
+  .v-mid{background:#fff4e0;color:#c47e00}
+  .v-no{background:#fdecea;color:#e0533d}
+  .note{font-size:12px;color:var(--sub);margin-top:10px}
+  .sum{white-space:pre-wrap;background:#0f241c;color:#d6f5e3;padding:14px;border-radius:10px;font-size:12.5px;
+       font-family:ui-monospace,Menlo,Consolas,monospace;overflow:auto;max-height:280px;margin-top:10px}
+  .addrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  .addrow input{padding:8px 10px;border:1px solid var(--line);border-radius:9px;font-size:13px}
+  .weightWarn{color:#e0533d;font-size:12px;margin-left:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>面试评估打分表</h1>
+  <p>按维度设权重、多位面试官独立打分，自动算加权总分与录用建议 · 数据仅保存在本浏览器</p>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>候选人信息</h2>
+    <div class="addrow">
+      <input type="text" id="candName" placeholder="候选人姓名" style="flex:1;min-width:180px"
+             oninput="save();renderSummary()">
+      <input type="text" id="candRole" placeholder="应聘岗位" style="flex:1;min-width:180px"
+             oninput="save();renderSummary()">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>评估维度与权重 <span id="weightHint" class="weightWarn"></span></h2>
+    <table id="dimTable">
+      <thead><tr><th class="dim">维度</th><th>权重(%)</th><th>操作</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="addrow">
+      <input type="text" id="newDim" placeholder="新增维度名称">
+      <button class="ghost sm" onclick="addDim()">+ 添加维度</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>面试官打分（1–5 分）</h2>
+    <div id="interviewerBox"></div>
+    <div class="addrow">
+      <input type="text" id="newInter" placeholder="面试官姓名/工号">
+      <button class="ghost sm" onclick="addInterviewer()">+ 添加面试官</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>评估结果</h2>
+    <div class="result">
+      <div class="stat"><div class="num" id="totalScore">—</div><div class="lbl">加权总分（百分制）</div></div>
+      <div class="stat"><div class="num" id="avgRaw">—</div><div class="lbl">原始均分（5 分制）</div></div>
+      <div class="stat" style="display:flex;align-items:center;justify-content:center">
+        <span class="verdict v-mid" id="verdict">待定</span>
+      </div>
+    </div>
+    <div class="btns">
+      <button class="ghost" onclick="exportSummary()">复制评估报告</button>
+      <button class="ghost" onclick="resetAll()">清空重来</button>
+    </div>
+    <pre class="sum" id="summaryBox" style="display:none"></pre>
+    <p class="note">建议阈值：≥80 推荐录用，60–79 待定/复试，&lt;60 不推荐。权重合计需为 100%。</p>
+  </div>
+</div>
+
+<script>
+const KEY="hr_scorecard_v1";
+let state = load() || {
+  name:"", role:"",
+  dims:[{n:"专业技能",w:30},{n:"经验匹配",w:25},{n:"沟通表达",w:20},{n:"文化契合",w:15},{n:"发展潜力",w:10}],
+  interviewers:[{name:"面试官1",scores:[0,0,0,0,0]}]
+};
+
+function load(){try{return JSON.parse(localStorage.getItem(KEY));}catch(e){return null;}}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+
+const dimsBody=document.querySelector('#dimTable tbody');
+const interBox=document.getElementById('interviewerBox');
+
+function renderDims(){
+  dimsBody.innerHTML="";
+  state.dims.forEach((d,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="dim"><input type="text" value="${d.n}" data-i="${i}"
+        style="border:none;background:transparent;font-weight:600;padding:4px"
+        oninput="state.dims[${i}].n=this.value;save();renderInterviewers();renderSummary()"></td>
+      <td><div class="wbox"><input type="number" min="0" max="100" value="${d.w}" data-i="${i}"
+        oninput="state.dims[${i}].w=+this.value||0;save();checkWeight();renderSummary()"></div></td>
+      <td><button class="ghost sm" onclick="delDim(${i})">删除</button></td>`;
+    dimsBody.appendChild(tr);
+  });
+  checkWeight();
+}
+function checkWeight(){
+  const sum=state.dims.reduce((a,d)=>a+(+d.w||0),0);
+  const hint=document.getElementById('weightHint');
+  hint.textContent = sum===100 ? "✓ 合计 100%" : `⚠ 当前合计 ${sum}%，请调整到 100%`;
+  hint.style.color = sum===100 ? "var(--green)" : "#e0533d";
+}
+function addDim(){state.dims.push({n:"新维度",w:0});syncScoresLen();save();renderDims();renderInterviewers();}
+function delDim(i){
+  if(state.dims.length<=1)return;
+  state.dims.splice(i,1);
+  state.interviewers.forEach(iv=>iv.scores.splice(i,1));
+  save();renderDims();renderInterviewers();renderSummary();
+}
+function syncScoresLen(){
+  const n=state.dims.length;
+  state.interviewers.forEach(iv=>{while(iv.scores.length<n)iv.scores.push(0);
+    while(iv.scores.length>n)iv.scores.pop();});
+}
+
+function renderInterviewers(){
+  interBox.innerHTML="";
+  state.interviewers.forEach((iv,ii)=>{
+    const card=document.createElement('div');
+    card.style.cssText="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:#fafdfb";
+    let head=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <input type="text" value="${iv.name}" data-ii="${ii}" placeholder="面试官"
+          style="max-width:200px" oninput="state.interviewers[${ii}].name=this.value;save();renderSummary()">
+        <button class="ghost sm" onclick="delInter(${ii})">移除</button></div>`;
+    let rows=`<table style="margin:0"><thead><tr><th class="dim">维度</th><th>打分(1-5)</th></tr></thead><tbody>`;
+    state.dims.forEach((d,di)=>{
+      rows+=`<tr><td class="dim">${d.n} <span style="color:var(--sub);font-weight:400">(${d.w}%)</span></td>
+        <td><input class="score" type="number" min="0" max="5" step="0.5"
+          value="${iv.scores[di]||0}" data-ii="${ii}" data-di="${di}"
+          oninput="state.interviewers[${ii}].scores[${di}]=+this.value||0;save();renderSummary()"></td></tr>`;
+    });
+    rows+="</tbody></table>";
+    card.innerHTML=head+rows;
+    interBox.appendChild(card);
+  });
+}
+function addInterviewer(){state.interviewers.push({name:"面试官"+(state.interviewers.length+1),
+  scores:state.dims.map(()=>0)});save();renderInterviewers();renderSummary();}
+function delInter(ii){if(state.interviewers.length<=1)return;
+  state.interviewers.splice(ii,1);save();renderInterviewers();renderSummary();}
+
+function renderSummary(){
+  document.getElementById('candName').value=state.name;
+  document.getElementById('candRole').value=state.role;
+  const wsum=state.dims.reduce((a,d)=>a+(+d.w||0),0)||1;
+  let totalNum=0, counted=0;
+  state.dims.forEach((d,di)=>{
+    const vals=state.interviewers.map(iv=>+iv.scores[di]||0).filter(v=>v>0);
+    if(vals.length){
+      const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+      totalNum += avg*(+d.w||0); counted++;
+    }
+  });
+  const weighted = wsum>0 ? totalNum/wsum : 0;     // 0-5 加权
+  const pct = Math.round(weighted/5*100);
+  const rawAvg = (()=>{const all=[];state.interviewers.forEach(iv=>iv.scores.forEach(s=>{if(s>0)all.push(s);}));
+    return all.length? (all.reduce((a,b)=>a+b,0)/all.length).toFixed(2):"—";})();
+
+  document.getElementById('totalScore').textContent = counted? pct : "—";
+  document.getElementById('avgRaw').textContent = rawAvg;
+  const v=document.getElementById('verdict');
+  if(!counted){v.textContent="待定";v.className="verdict v-mid";}
+  else if(pct>=80){v.textContent="推荐录用";v.className="verdict v-ok";}
+  else if(pct>=60){v.textContent="待定 / 复试";v.className="verdict v-mid";}
+  else{v.textContent="不推荐";v.className="verdict v-no";}
+}
+
+function exportSummary(){
+  renderSummary();
+  const pct=document.getElementById('totalScore').textContent;
+  let lines=[];
+  lines.push("【面试评估报告】");
+  lines.push("候选人："+(state.name||"未填写")+"    岗位："+(state.role||"未填写"));
+  lines.push("评估时间："+new Date().toLocaleString("zh-CN"));
+  lines.push("");
+  lines.push("维度得分（多人平均）：");
+  state.dims.forEach((d,di)=>{
+    const vals=state.interviewers.map(iv=>+iv.scores[di]||0).filter(v=>v>0);
+    const avg=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2):"—";
+    lines.push(`  · ${d.n}（权重${d.w}%）：${avg}`);
+  });
+  lines.push("");
+  lines.push("加权总分（百分制）："+pct);
+  lines.push("录用建议："+document.getElementById('verdict').textContent);
+  const box=document.getElementById('summaryBox');
+  box.style.display="block";box.textContent=lines.join("\n");
+  navigator.clipboard?.writeText(lines.join("\n"));
+  box.scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+function resetAll(){
+  if(!confirm("确定清空所有评分与维度？"))return;
+  state={name:"",role:"",dims:[{n:"专业技能",w:30},{n:"经验匹配",w:25},{n:"沟通表达",w:20},
+    {n:"文化契合",w:15},{n:"发展潜力",w:10}],interviewers:[{name:"面试官1",scores:[0,0,0,0,0]}]};
+  save();renderAll();
+}
+
+function renderAll(){
+  renderDims();renderInterviewers();renderSummary();
+}
+document.getElementById('candName').oninput=e=>{state.name=e.target.value;save();renderSummary();};
+document.getElementById('candRole').oninput=e=>{state.role=e.target.value;save();renderSummary();};
+renderAll();
+</script>
+</body>
+</html>
