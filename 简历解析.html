@@ -114,6 +114,41 @@
   </div>
 
   <div class="card">
+    <h2>①-B AI 解析增强（可选，更准）</h2>
+    <p class="hint" style="margin:0 0 12px">填入大模型 API Key 后，花哨简历的识别准确率会大幅提升（学历/院校/技能不再靠规则猜）。<b>Key 只存在你本机浏览器，不会上传、不会进代码。</b> 不填则自动用本地规则解析。</p>
+    <div class="grid2">
+      <div class="field"><label>API Key（如 sk-...，存本机浏览器）</label>
+        <input type="password" id="aiKey" placeholder="sk-..." autocomplete="off">
+      </div>
+      <div class="field"><label>模型</label>
+        <select id="aiModel">
+          <option value="deepseek-chat">DeepSeek Chat（推荐·便宜快）</option>
+          <option value="gpt-4o">GPT-4o（多模态·可看图）</option>
+          <option value="qwen-vl-max">通义千问视觉版（多模态·可看图）</option>
+          <option value="deepseek-reasoner">DeepSeek Reasoner</option>
+        </select>
+      </div>
+    </div>
+    <div class="btns">
+      <button class="ghost" onclick="saveAiKey()">保存 Key</button>
+      <button class="ghost" onclick="clearAiKey()">清除 Key</button>
+      <span class="hint" id="aiStatus"></span>
+    </div>
+    <p class="note">说明：解析时仅把简历文字（图片则发送图片）发给对应官方 API，Key 仅在请求头中、只去官方服务器。可随时「清除 Key」关闭 AI。图片类简历若所选模型支持多模态将直接看图，否则先 OCR 抽文字再走文本解析。</p>
+  </div>
+
+  <div class="card">
+    <h2>①-C 技能词库（可自定义）</h2>
+    <p class="hint" style="margin:0 0 12px">默认已含宁德时代岗位常用词。可增删，逗号 / 顿号 / 分号分隔，保存后实时生效。</p>
+    <textarea id="skillLib" style="min-height:90px"></textarea>
+    <div class="btns">
+      <button class="ghost" onclick="saveSkillLib()">保存词库</button>
+      <button class="ghost" onclick="resetSkillLib()">恢复默认</button>
+      <span class="hint" id="skillLibStat"></span>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>② 招聘条件（算契合度用）</h2>
     <div class="grid2">
       <div class="field"><label>学历要求</label>
@@ -152,6 +187,7 @@
     <div class="btns">
       <button class="ghost" onclick="exportCSV()">导出 CSV</button>
       <button class="ghost" onclick="copyMD()">复制 Markdown 表</button>
+      <button onclick="sendAllToScorecard()">📤 全部送进面试打分表</button>
     </div>
     <div id="rankBox" style="margin-top:14px"></div>
     <p class="note">说明：解析基于关键词与正则规则，结果可能不完整，请在表格中直接校正后再使用 / 导出。契合度仅作初筛参考。</p>
@@ -186,11 +222,39 @@
 </div>
 
 <script>
-const SKILLS=["Python","Java","C++","C#","Go","JavaScript","TypeScript","SQL","HTML","CSS","Excel","PPT","Word",
+const DEFAULT_SKILL_LIB=[
+  // 通用
+  "Python","Java","C++","C#","Go","JavaScript","TypeScript","SQL","HTML","CSS","Excel","PPT","Word",
   "SAP","ERP","机器学习","深度学习","数据分析","数据挖掘","项目管理","PMP","六西格玛","精益生产","质量管理","ISO9001",
   "供应链管理","采购","财务","会计","审计","税务","法律","合规","人力资源","招聘","培训","绩效考核","劳动法",
-  "英语","日语","德语","韩语","AutoCAD","SolidWorks","Matlab","CAD","锂电池","电芯","电池","BMS","工艺","研发",
-  "专利","知识产权","PowerBI","Tableau","Spark","Hadoop","Kubernetes","Docker","React","Vue"];
+  "英语","日语","德语","韩语","AutoCAD","SolidWorks","Matlab","CAD","PowerBI","Tableau","Spark","Hadoop","Kubernetes","Docker","React","Vue",
+  // 宁德时代 / 电池行业岗位词
+  "锂电池","电芯","电池","BMS","电池包","PACK","热管理","续航","充放电","梯次利用","储能","正极","负极","电解液","隔膜",
+  "动力电池","储能电池","电池回收","工艺","研发","量产","良率","设备","产线","质量","FMEA","SPC","IE","精益","安全","EHS",
+  "专利","知识产权","标准","体系","审核","供应商","成本","制造","自动化","嵌入式","控制","算法"
+];
+const SKILL_KEY="hr_skill_lib";
+function loadSkillLib(){
+  try{const v=JSON.parse(localStorage.getItem(SKILL_KEY));if(Array.isArray(v)&&v.length)return v;}catch(e){}
+  return DEFAULT_SKILL_LIB.slice();
+}
+let SKILLS=loadSkillLib();
+function saveSkillLib(){
+  const raw=document.getElementById('skillLib').value;
+  const arr=normList(raw);
+  if(!arr.length){alert("词库不能为空");return;}
+  localStorage.setItem(SKILL_KEY,JSON.stringify(arr));
+  SKILLS=arr;
+  if(data.length){recompute();}
+  document.getElementById('skillLibStat').textContent="已保存，当前 "+arr.length+" 个词";
+}
+function resetSkillLib(){
+  localStorage.removeItem(SKILL_KEY);
+  SKILLS=DEFAULT_SKILL_LIB.slice();
+  document.getElementById('skillLib').value=SKILLS.join("、");
+  document.getElementById('skillLibStat').textContent="已恢复默认词库";
+  if(data.length)recompute();
+}
 const EDU_MAP={"博士后":5,"博士":4,"硕士研究生":3,"研究生":3,"硕士":3,"本科":2,"大专":1,"专科":1};
 
 const FIELDS=["姓名","手机","邮箱","最高学历","毕业院校","工作年限","技能标签","其他亮点"];
@@ -237,19 +301,21 @@ function extract(text,i){
       || (text.match(/([A-Za-z][\w\s.&',-]{2,30}(?:University|Institute|College|School))/)||[])[0]||"";
   }
   r["毕业院校"]=sch.trim();
+  // 工作年限：优先「明确年限词」>「经验关键词」> 不瞎猜
   let yr=null;
-  const m1=text.match(/(?:工作年限|相关经验|工作经验|从业年限)[:：]?\s*(\d+)/);
-  if(m1){yr=+m1[1];}
+  const m1=text.match(/(?:工作年限|相关经验|工作经验|从业年限)[:：]?\s*(\d+(\.\d)?)/);
+  if(m1){yr=parseFloat(m1[1]);}
   else{
-    const ctx=[...text.matchAll(/(\d+)\s*年.{0,8}?(?:工作|经验|开发|相关|从业|分析|操刀)/g)]
-      .map(m=>+m[1]).filter(n=>n>0&&n<=40);
+    const ctx=[...text.matchAll(/(\d+(?:\.\d)?)\s*年.{0,8}?(?:工作|经验|开发|相关|从业|分析|操刀)/g)]
+      .map(m=>parseFloat(m[1])).filter(n=>n>0&&n<=40);
     if(ctx.length){yr=Math.max(...ctx);}
-    else{
-      const loose=[...text.matchAll(/(\d+)\s*年/g)].map(m=>+m[1]).filter(n=>n>0&&n<=40);
-      if(loose.length)yr=Math.max(...loose);
-    }
   }
-  r["工作年限"]=yr!=null?yr+" 年":"";
+  // 在读 / 应届推算：若最高学历含「至今」且未匹配到经验词，则视为 0 年（避免把在读时长当工龄）
+  const studying=/至今|在读|预计\s*\d{4}\s*年?\s*(毕业|毕业)/.test(text)
+    && !/(?:工作年限|相关经验|工作经验|从业年限)[:：]?\s*\d/.test(text)
+    && !/(\d+(?:\.\d)?)\s*年.{0,8}?(?:工作|经验|开发|相关|从业|分析)/.test(text);
+  if(studying && yr==null){yr=0;}
+  r["工作年限"]=yr!=null? (Number.isInteger(yr)? yr+" 年" : yr.toFixed(1)+" 年") : "";
   const found=[];SKILLS.forEach(s=>{if(text.includes(s))found.push(s);});
   r["技能标签"]=found;
   let name="";
@@ -259,6 +325,89 @@ function extract(text,i){
   r["姓名"]=name||("候选人"+(i+1));
   r["其他亮点"]="";
   return r;
+}
+
+/* ---------- AI 解析层（DeepSeek / 多模态，Key 仅存本机） ---------- */
+const AI_KEY_STORE="hr_ai_key", AI_MODEL_STORE="hr_ai_model";
+function getAiKey(){return (localStorage.getItem(AI_KEY_STORE)||"").trim();}
+function getAiModel(){return (localStorage.getItem(AI_MODEL_STORE)||"deepseek-chat").trim();}
+function aiEnabled(){return getAiKey().length>0;}
+function saveAiKey(){
+  const k=document.getElementById('aiKey').value.trim();
+  if(!k){alert("请输入 Key");return;}
+  localStorage.setItem(AI_KEY_STORE,k);
+  localStorage.setItem(AI_MODEL_STORE,document.getElementById('aiModel').value);
+  document.getElementById('aiStatus').textContent="✅ Key 已保存（仅存本机）";
+}
+function clearAiKey(){
+  localStorage.removeItem(AI_KEY_STORE);localStorage.removeItem(AI_MODEL_STORE);
+  document.getElementById('aiKey').value="";
+  document.getElementById('aiStatus').textContent="已清除，将使用本地规则解析";
+}
+const MULTIMODAL=new Set(["gpt-4o","qwen-vl-max","gpt-4-vision-preview"]);
+function aiApiUrl(model){
+  if(model.startsWith("qwen"))return "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+  return "https://api.deepseek.com/chat/completions";
+}
+async function callAI(text,imgBase64){
+  const key=getAiKey(),model=getAiModel();
+  const sys="你是简历解析助手。从简历中抽取字段，严格只返回 JSON，不要解释。字段：name(姓名),phone(手机),email(邮箱),education(最高学历，如 本科/硕士/博士),school(最高学历毕业院校全称),years(工作年限数字，在读或无经验填0),skills(技能标签数组，用中文或通用英文),highlights(其他亮点字符串)。";
+  const userText=imgBase64
+    ? "请解析这张简历图片，返回结构化字段。"
+    : "请解析以下简历文本：\n"+text;
+  const content=[];
+  if(imgBase64)content.push({type:"image_url",image_url:{url:imgBase64}});
+  content.push({type:"text",text:userText});
+  const body={model, messages:[
+    {role:"system",content:sys},
+    {role:"user",content:imgBase64?content:{type:"text",content:userText}}
+  ], response_format:{type:"json_object"}, temperature:0};
+  const res=await fetch(aiApiUrl(model),{
+    method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+    body:JSON.stringify(body)
+  });
+  if(!res.ok)throw new Error("API "+res.status);
+  const j=await res.json();
+  const s=j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;
+  if(!s)throw new Error("空响应");
+  return JSON.parse(s);
+}
+// 返回抽取结果对象，或 null（需降级本地）
+async function extractWithAI(text,imgURL){
+  if(!aiEnabled())return null;
+  try{
+    let imgBase64=null;
+    if(imgURL && MULTIMODAL.has(getAiModel())){
+      imgBase64=await imgToBase64(imgURL);
+    }
+    const j=await callAI(text,imgBase64);
+    const r={raw:text};
+    r["姓名"]=j.name||"";
+    r["手机"]=j.phone||(text.match(/1[3-9]\d{9}/)||[])[0]||"";
+    r["邮箱"]=j.email||(text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)||[])[0]||"";
+    r["最高学历"]=j.education||"";
+    r["毕业院校"]=j.school||"";
+    let y=j.years;
+    if(y==null||y===""||isNaN(+y))y=null;else y=+y;
+    r["工作年限"]=y!=null?(Number.isInteger(y)?y+" 年":y.toFixed(1)+" 年"):"";
+    r["技能标签"]=Array.isArray(j.skills)?j.skills.map(s=>String(s).trim()).filter(Boolean):[];
+    if(!r["技能标签"].length){SKILLS.forEach(s=>{if(text.includes(s))r["技能标签"].push(s);});}
+    r["其他亮点"]=j.highlights||"";
+    r._ai=true;
+    return r;
+  }catch(e){
+    console.warn("AI 解析失败，降级本地：",e);
+    return null;
+  }
+}
+function imgToBase64(url){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();img.crossOrigin="anonymous";
+    img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+      c.getContext('2d').drawImage(img,0,0);
+      try{resolve(c.toDataURL('image/png'));}catch(e){reject(e);}};
+    img.onerror=reject;img.src=url;
+  });
 }
 
 /* ---------- 契合度 + 限制 ---------- */
@@ -402,6 +551,29 @@ function download(content,name,type){
   const blob=new Blob([content],{type});const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);
 }
+/* ---------- 三工具数据打通：送进面试打分表 ---------- */
+const SCORECARD_CAND_KEY="hr_candidates_for_scorecard";
+function sendAllToScorecard(){
+  if(!data.length){alert("还没有解析任何简历");return;}
+  const list=data.map(d=>({
+    name:d["姓名"]||"候选人",
+    edu:d["最高学历"]||"", school:d["毕业院校"]||"",
+    years:(d["工作年限"]||"").replace(/\s*年$/,""),
+    skills:Array.isArray(d["技能标签"])?d["技能标签"]:[],
+    fit:d.fit==null?"":d.fit
+  }));
+  localStorage.setItem(SCORECARD_CAND_KEY,JSON.stringify(list));
+  const url="面试评估打分表.html";
+  alert("已发送 "+list.length+" 名候选人到「面试评估打分表」。\n打开该工具即可一键导入（姓名已带过去，技能作为参考）。");
+}
+function initAiSkillUI(){
+  const k=getAiKey();
+  document.getElementById('aiKey').value=k;
+  document.getElementById('aiModel').value=getAiModel();
+  document.getElementById('aiStatus').textContent=k?("✅ Key 已保存（"+getAiModel()+"）"):"未填 Key，使用本地规则解析";
+  document.getElementById('skillLib').value=SKILLS.join("、");
+  document.getElementById('skillLibStat').textContent="当前 "+SKILLS.length+" 个词";
+}
 function loadDemo(){
   document.getElementById('raw').value=
 `张明
@@ -463,13 +635,19 @@ async function ingestFiles(files){
         st.textContent='提取文字…';
         text=await extractPdf(f);
       }else if(/\.(png|jpe?g|gif|bmp|webp)$/.test(n)){
-        if(!window.Tesseract)throw new Error('OCR 库未加载，请联网刷新');
-        text=await ocrImage(f,p=>{bar.style.width=Math.round(p*100)+'%';st.textContent='识别中 '+Math.round(p*100)+'%';});
+        const useAI=(aiEnabled() && MULTIMODAL.has(getAiModel()));
+        if(useAI){
+          st.textContent='AI 看图解析…';
+          text="@@IMAGE@@";
+        }else{
+          if(!window.Tesseract)throw new Error('OCR 库未加载，请联网刷新');
+          text=await ocrImage(f,p=>{bar.style.width=Math.round(p*100)+'%';st.textContent='识别中 '+Math.round(p*100)+'%';});
+        }
       }else{throw new Error('不支持的格式');}
       if(!text.trim())throw new Error('未提取到文字（图片质量或版式问题）');
       let imgURL=null;
       if(isImg) imgURL=URL.createObjectURL(f);
-      addCandidateFromText(text,f.name,imgURL);
+      await addCandidateFromText(text,f.name,imgURL);
       bar.style.width='100%';st.textContent='✓ 完成';st.className='st ok';
       if(isImg){const idx=data.length-1;
         row.insertAdjacentHTML('beforeend','<button class="mini" onclick="openModal('+idx+')">🔍 框选修正</button>');}
@@ -498,14 +676,23 @@ function ocrImage(file,onprog){
     {logger:m=>{if(m.status==='recognizing text'&&onprog)onprog(m.progress);}}
   ).then(r=>r.data.text);
 }
-function addCandidateFromText(text,fname,imgURL){
+async function addCandidateFromText(text,fname,imgURL){
   text=(text||"").trim();if(!text)return;
-  const d=extract(text,data.length);
-  if(d["姓名"].startsWith("候选人")&&fname){
-    let stem=fname.replace(/\.[^.]+$/,"").replace(/[_-]+/g," ").trim();
-    stem=stem.replace(/^(微信图片|微信|weixin|image|img|截图|screenshot|未命名|untitled|photo)\s*/i,"")
-              .replace(/\b\d{4,}\b/g,"").replace(/\s+/g," ").trim();
-    if(stem)d["姓名"]=stem;
+  let d=null;
+  if(aiEnabled()){
+    d=await extractWithAI(text,imgURL);
+  }
+  if(!d){
+    d=extract(text,data.length);
+  }
+  if(!d["姓名"]||d["姓名"].startsWith("候选人")){
+    if(fname){
+      let stem=fname.replace(/\.[^.]+$/,"").replace(/[_-]+/g," ").trim();
+      stem=stem.replace(/^(微信图片|微信|weixin|image|img|截图|screenshot|未命名|untitled|photo)\s*/i,"")
+                .replace(/\b\d{4,}\b/g,"").replace(/\s+/g," ").trim();
+      if(stem)d["姓名"]=stem;
+    }
+    if(!d["姓名"])d["姓名"]="候选人"+(data.length+1);
   }
   d._img=imgURL||null; d._fname=fname||"";
   data.push(d);
@@ -587,6 +774,7 @@ function copyOcr(){
   if(navigator.clipboard)navigator.clipboard.writeText(t);
   alert('文字已复制');
 }
+initAiSkillUI();
 initSel();
 setupDrop();
 </script>
