@@ -67,7 +67,10 @@
              oninput="save();renderSummary()">
       <input type="text" id="candRole" placeholder="应聘岗位" style="flex:1;min-width:180px"
              oninput="save();renderSummary()">
+      <button class="ghost" onclick="importFromResume()">📥 从简历解析导入</button>
     </div>
+    <div id="candBar" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"></div>
+    <div id="candRef" style="display:none;margin-top:12px;background:#fafdfb;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13px"></div>
   </div>
 
   <div class="card">
@@ -111,14 +114,19 @@
 
 <script>
 const KEY="hr_scorecard_v1";
+const SCORECARD_CAND_KEY="hr_candidates_for_scorecard";
 let state = load() || {
   name:"", role:"",
   dims:[{n:"专业技能",w:30},{n:"经验匹配",w:25},{n:"沟通表达",w:20},{n:"文化契合",w:15},{n:"发展潜力",w:10}],
-  interviewers:[{name:"面试官1",scores:[0,0,0,0,0]}]
+  interviewers:[{name:"面试官1",scores:[0,0,0,0,0]}],
+  cands:[], cur:-1
 };
+function newCand(name){return {name:name||"候选人",edu:"",school:"",years:"",skills:[],fit:"",
+  iv:Object.fromEntries(state.interviewers.map(iv=>[iv.name,state.dims.map(()=>0)]))};}
 
 function load(){try{return JSON.parse(localStorage.getItem(KEY));}catch(e){return null;}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+function curCand(){return state.cur>=0?state.cands[state.cur]:null;}
 
 const dimsBody=document.querySelector('#dimTable tbody');
 const interBox=document.getElementById('interviewerBox');
@@ -154,41 +162,64 @@ function syncScoresLen(){
   const n=state.dims.length;
   state.interviewers.forEach(iv=>{while(iv.scores.length<n)iv.scores.push(0);
     while(iv.scores.length>n)iv.scores.pop();});
+  state.cands.forEach(c=>{state.interviewers.forEach(iv=>{
+    if(!c.iv[iv.name])c.iv[iv.name]=state.dims.map(()=>0);
+    const sc=c.iv[iv.name];
+    while(sc.length<n)sc.push(0);while(sc.length>n)sc.pop();
+  });});
 }
 
 function renderInterviewers(){
   interBox.innerHTML="";
+  const c=curCand();
   state.interviewers.forEach((iv,ii)=>{
     const card=document.createElement('div');
     card.style.cssText="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:#fafdfb";
     let head=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
         <input type="text" value="${iv.name}" data-ii="${ii}" placeholder="面试官"
-          style="max-width:200px" oninput="state.interviewers[${ii}].name=this.value;save();renderSummary()">
+          style="max-width:200px" oninput="state.interviewers[${ii}].name=this.value;syncCandIvName(${ii},this.value);save();renderSummary()">
         <button class="ghost sm" onclick="delInter(${ii})">移除</button></div>`;
     let rows=`<table style="margin:0"><thead><tr><th class="dim">维度</th><th>打分(1-5)</th></tr></thead><tbody>`;
+    const sc=(c&&c.iv[iv.name])||iv.scores;
     state.dims.forEach((d,di)=>{
       rows+=`<tr><td class="dim">${d.n} <span style="color:var(--sub);font-weight:400">(${d.w}%)</span></td>
         <td><input class="score" type="number" min="0" max="5" step="0.5"
-          value="${iv.scores[di]||0}" data-ii="${ii}" data-di="${di}"
-          oninput="state.interviewers[${ii}].scores[${di}]=+this.value||0;save();renderSummary()"></td></tr>`;
+          value="${sc[di]||0}" data-ii="${ii}" data-di="${di}"
+          oninput="setScore(${ii},${di},+this.value||0)"></td></tr>`;
     });
     rows+="</tbody></table>";
     card.innerHTML=head+rows;
     interBox.appendChild(card);
   });
 }
+function setScore(ii,di,v){
+  const iv=state.interviewers[ii];
+  iv.scores[di]=v;
+  const c=curCand();
+  if(c){if(!c.iv[iv.name])c.iv[iv.name]=state.dims.map(()=>0);c.iv[iv.name][di]=v;}
+  save();renderSummary();
+}
+function syncCandIvName(ii,newName){
+  const old=state.interviewers[ii].name;
+  state.cands.forEach(c=>{if(c.iv[old]!=null){c.iv[newName]=c.iv[old];delete c.iv[old];}});
+}
 function addInterviewer(){state.interviewers.push({name:"面试官"+(state.interviewers.length+1),
-  scores:state.dims.map(()=>0)});save();renderInterviewers();renderSummary();}
+  scores:state.dims.map(()=>0)});
+  state.cands.forEach(c=>{if(!c.iv[state.interviewers[state.interviewers.length-1].name])c.iv[state.interviewers[state.interviewers.length-1].name]=state.dims.map(()=>0);});
+  save();renderInterviewers();renderSummary();}
 function delInter(ii){if(state.interviewers.length<=1)return;
+  const nm=state.interviewers[ii].name;
+  state.cands.forEach(c=>{delete c.iv[nm];});
   state.interviewers.splice(ii,1);save();renderInterviewers();renderSummary();}
 
 function renderSummary(){
   document.getElementById('candName').value=state.name;
   document.getElementById('candRole').value=state.role;
+  const c=curCand();
   const wsum=state.dims.reduce((a,d)=>a+(+d.w||0),0)||1;
   let totalNum=0, counted=0;
   state.dims.forEach((d,di)=>{
-    const vals=state.interviewers.map(iv=>+iv.scores[di]||0).filter(v=>v>0);
+    const vals=state.interviewers.map(iv=>{const sc=(c&&c.iv[iv.name])||iv.scores;return +sc[di]||0;}).filter(v=>v>0);
     if(vals.length){
       const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
       totalNum += avg*(+d.w||0); counted++;
@@ -196,7 +227,7 @@ function renderSummary(){
   });
   const weighted = wsum>0 ? totalNum/wsum : 0;     // 0-5 加权
   const pct = Math.round(weighted/5*100);
-  const rawAvg = (()=>{const all=[];state.interviewers.forEach(iv=>iv.scores.forEach(s=>{if(s>0)all.push(s);}));
+  const rawAvg = (()=>{const all=[];state.interviewers.forEach(iv=>{const sc=(c&&c.iv[iv.name])||iv.scores;sc.forEach(s=>{if(s>0)all.push(s);});});
     return all.length? (all.reduce((a,b)=>a+b,0)/all.length).toFixed(2):"—";})();
 
   document.getElementById('totalScore').textContent = counted? pct : "—";
@@ -210,15 +241,17 @@ function renderSummary(){
 
 function exportSummary(){
   renderSummary();
+  const c=curCand();
   const pct=document.getElementById('totalScore').textContent;
   let lines=[];
   lines.push("【面试评估报告】");
-  lines.push("候选人："+(state.name||"未填写")+"    岗位："+(state.role||"未填写"));
+  lines.push("候选人："+((c&&c.name)||state.name||"未填写")+"    岗位："+(state.role||"未填写"));
   lines.push("评估时间："+new Date().toLocaleString("zh-CN"));
+  if(c&&(c.edu||c.school||c.skills.length)){lines.push("简历背景："+(c.edu||"")+(c.school?" "+c.school:"")+(c.years?" "+c.years+"年":"")+(c.skills.length?" 技能："+c.skills.join("、"):""));}
   lines.push("");
   lines.push("维度得分（多人平均）：");
   state.dims.forEach((d,di)=>{
-    const vals=state.interviewers.map(iv=>+iv.scores[di]||0).filter(v=>v>0);
+    const vals=state.interviewers.map(iv=>{const sc=(c&&c.iv[iv.name])||iv.scores;return +sc[di]||0;}).filter(v=>v>0);
     const avg=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2):"—";
     lines.push(`  · ${d.n}（权重${d.w}%）：${avg}`);
   });
@@ -234,12 +267,48 @@ function exportSummary(){
 function resetAll(){
   if(!confirm("确定清空所有评分与维度？"))return;
   state={name:"",role:"",dims:[{n:"专业技能",w:30},{n:"经验匹配",w:25},{n:"沟通表达",w:20},
-    {n:"文化契合",w:15},{n:"发展潜力",w:10}],interviewers:[{name:"面试官1",scores:[0,0,0,0,0]}]};
+    {n:"文化契合",w:15},{n:"发展潜力",w:10}],interviewers:[{name:"面试官1",scores:[0,0,0,0,0]}],cands:[],cur:-1};
   save();renderAll();
 }
 
+function renderCandBar(){
+  const box=document.getElementById('candBar');if(!box)return;
+  if(!state.cands.length){box.innerHTML='<span class="hint">暂无从简历解析导入的候选人。在「简历解析」页点「全部送进面试打分表」即可带过来。</span>';return;}
+  box.innerHTML=state.cands.map((c,i)=>
+    `<button class="ghost sm ${i===state.cur?'cursel':''}" onclick="selectCand(${i})" style="${i===state.cur?'background:var(--green);color:#fff':''}">${esc(c.name||('候选人'+(i+1)))}</button>`
+  ).join('')+'<button class="ghost sm" onclick="addBlankCand()">+ 手动添加</button>';
+}
+function selectCand(i){state.cur=i;save();renderCandBar();renderInterviewerRef();renderInterviewers();renderSummary();}
+function addBlankCand(){state.cands.push(newCand("候选人"+(state.cands.length+1)));state.cur=state.cands.length-1;save();renderCandBar();renderInterviewerRef();renderInterviewers();renderSummary();}
+function renderInterviewerRef(){
+  const ref=document.getElementById('candRef');if(!ref)return;
+  const c=curCand();
+  if(!c||(!c.edu&&!c.school&&!c.skills.length&&!c.years&&!c.fit)){ref.style.display='none';ref.innerHTML='';return;}
+  ref.style.display='';
+  ref.innerHTML=`<b>简历背景（来自简历解析）</b>：${[c.edu,c.school,c.years?c.years+'年':''].filter(Boolean).join(' · ')}
+    ${c.fit!==''?` · 初筛契合度 ${c.fit}%`:''}
+    ${c.skills.length?`<div style="margin-top:6px">技能：${c.skills.map(s=>`<span class="tag">${esc(s)}</span>`).join('')}</div>`:''}`;
+}
+function importFromResume(){
+  let raw=null;
+  try{raw=localStorage.getItem(SCORECARD_CAND_KEY);}catch(e){}
+  if(!raw){alert("没有从简历解析导入的数据。\n请先在「简历解析·候选人对比」页点「全部送进面试打分表」。\n（两个工具需在同一浏览器打开）");return;}
+  let list=[];try{list=JSON.parse(raw);}catch(e){}
+  if(!Array.isArray(list)||!list.length){alert("导入数据为空");return;}
+  list.forEach(x=>{
+    const c=newCand(x.name);
+    c.edu=x.edu||"";c.school=x.school||"";c.years=x.years||"";c.fit=x.fit||"";
+    c.skills=Array.isArray(x.skills)?x.skills:[];
+    state.cands.push(c);
+  });
+  state.cur=state.cands.length-1;
+  save();renderCandBar();renderInterviewerRef();renderInterviewers();renderSummary();
+  alert("已导入 "+list.length+" 名候选人，可点击上方标签切换打分。");
+}
+
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function renderAll(){
-  renderDims();renderInterviewers();renderSummary();
+  renderDims();renderCandBar();renderInterviewerRef();renderInterviewers();renderSummary();
 }
 document.getElementById('candName').oninput=e=>{state.name=e.target.value;save();renderSummary();};
 document.getElementById('candRole').oninput=e=>{state.role=e.target.value;save();renderSummary();};
