@@ -191,7 +191,7 @@ const SKILLS=["Python","Java","C++","C#","Go","JavaScript","TypeScript","SQL","H
   "供应链管理","采购","财务","会计","审计","税务","法律","合规","人力资源","招聘","培训","绩效考核","劳动法",
   "英语","日语","德语","韩语","AutoCAD","SolidWorks","Matlab","CAD","锂电池","电芯","电池","BMS","工艺","研发",
   "专利","知识产权","PowerBI","Tableau","Spark","Hadoop","Kubernetes","Docker","React","Vue"];
-const EDU_MAP={"博士":4,"研究生":3,"硕士":3,"本科":2,"大专":1,"专科":1};
+const EDU_MAP={"博士后":5,"博士":4,"硕士研究生":3,"研究生":3,"硕士":3,"本科":2,"大专":1,"专科":1};
 
 const FIELDS=["姓名","手机","邮箱","最高学历","毕业院校","工作年限","技能标签","其他亮点"];
 let data=[];
@@ -212,10 +212,30 @@ function extract(text,i){
   const r={raw:text};
   r["手机"]=(text.match(/1[3-9]\d{9}/)||[])[0]||"";
   r["邮箱"]=(text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)||[])[0]||"";
-  const deg=(text.match(/(博士|硕士研究生|硕士|研究生|本科|大专|专科)/)||[])[0]||"";
+  // 学历：扫描全文，取 EDU_MAP 等级最高者（避免「取第一个」漏掉更高学历）
+  const EDU_KEYS=["博士后","博士","硕士研究生","硕士","研究生","本科","大专","专科"];
+  let bestLv=0,bestKey="";
+  EDU_KEYS.forEach(k=>{
+    let idx=text.indexOf(k);
+    while(idx!==-1){ if((EDU_MAP[k]||0)>bestLv){bestLv=EDU_MAP[k]||0;bestKey=k;} idx=text.indexOf(k,idx+k.length); }
+  });
+  let deg=bestKey;
   r["最高学历"]=deg;
-  const sch=(text.match(/([\u4e00-\u9fa5]{2,12}(?:大学|学院|理工学院|科技大学|交通大学|工业大学|理工大学|师范大学|财经大学|政法大学|医科大学|农林大学))/)||[])[0]
-          || (text.match(/([A-Za-z][\w\s.&',-]{2,30}(?:University|Institute|College|School))/)||[])[0]||"";
+  // 院校：优先取「最高学历所在行」的学校名，避免错配到低学历阶段的院校
+  let sch="";
+  if(deg){
+    const lines=text.split(/\n/);
+    for(const ln of lines){
+      if(ln.includes(deg)){
+        const m=ln.match(/([\u4e00-\u9fa5]{2,12}(?:大学|学院|理工学院|科技大学|交通大学|工业大学|理工大学|师范大学|财经大学|政法大学|医科大学|农林大学))/);
+        if(m){sch=m[1];break;}
+      }
+    }
+  }
+  if(!sch){
+    sch=(text.match(/([\u4e00-\u9fa5]{2,12}(?:大学|学院|理工学院|科技大学|交通大学|工业大学|理工大学|师范大学|财经大学|政法大学|医科大学|农林大学))/)||[])[0]
+      || (text.match(/([A-Za-z][\w\s.&',-]{2,30}(?:University|Institute|College|School))/)||[])[0]||"";
+  }
   r["毕业院校"]=sch.trim();
   let yr=null;
   const m1=text.match(/(?:工作年限|相关经验|工作经验|从业年限)[:：]?\s*(\d+)/);
