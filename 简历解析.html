@@ -134,7 +134,7 @@
         </select>
       </div>
       <div class="field" style="grid-column:1/-1"><label>CORS 代理地址（可选，解决浏览器跨域）</label>
-        <input type="text" id="aiProxy" placeholder="如 https://你的名字.workers.dev/?url=（自建 Cloudflare Worker）" autocomplete="off">
+        <input type="text" id="aiProxy" placeholder="已为你预填共享代理，一般无需修改（也可自建 Cloudflare Worker 替换）" autocomplete="off">
       </div>
     </div>
     <div class="btns">
@@ -337,6 +337,8 @@ function extract(text,i){
 
 /* ---------- AI 解析层（DeepSeek / 多模态，Key 仅存本机） ---------- */
 const AI_KEY_STORE="hr_ai_key", AI_MODEL_STORE="hr_ai_model", AI_PROXY_STORE="hr_ai_proxy";
+// 预填的共享 CORS 代理（自建 Cloudflare Worker，仅中转、不存 Key，可安全公开共享）
+const AI_PROXY_DEFAULT="https://hr-ai-proxy.2654434056.workers.dev/?url=";
 function getAiKey(){return (localStorage.getItem(AI_KEY_STORE)||"").trim();}
 function getAiModel(){return (localStorage.getItem(AI_MODEL_STORE)||"deepseek-chat").trim();}
 function aiEnabled(){return getAiKey().length>0;}
@@ -375,7 +377,7 @@ function clearAiKey(){
   document.getElementById('aiStatus').textContent="已清除，将使用本地规则解析";
 }
 const MULTIMODAL=new Set(["gpt-4o","qwen-vl-max","gpt-4-vision-preview"]);
-function getAiProxy(){return (localStorage.getItem(AI_PROXY_STORE)||"").trim();}
+function getAiProxy(){ const v=(localStorage.getItem(AI_PROXY_STORE)||"").trim(); return v || AI_PROXY_DEFAULT; }
 function aiApiUrl(model){
   const base = model.startsWith("qwen")
     ? "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
