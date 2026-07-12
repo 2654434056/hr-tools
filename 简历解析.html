@@ -82,6 +82,11 @@
   .modal-side{flex:0 0 300px;display:flex;flex-direction:column;gap:10px}
   .modal-side textarea{flex:1;min-height:200px}
   @media(max-width:720px){.modal-body{flex-direction:column}.modal-side{flex:1 1 auto}}
+  .statbar{display:inline-block;font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;line-height:1.2;margin-left:2px}
+  .statbar.s-info{background:#e8f1ff;color:#1a5fd6;border:1px solid #cfe0ff}
+  .statbar.s-ok{background:#e7f8ee;color:#0a8a48;border:1px solid #bde9cd}
+  .statbar.s-err{background:#fdecec;color:#c0392b;border:1px solid #f5c6c6}
+  .statbar:empty{display:none}
 </style>
 <script defer src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -108,7 +113,7 @@
       <button onclick="parseAll()">解析粘贴的文本</button>
       <button class="ghost" onclick="loadDemo()">载入示例</button>
       <button class="ghost" onclick="clearAll()">清空全部</button>
-      <span class="hint" id="stat"></span>
+      <span id="stat" class="statbar"></span>
     </div>
     <p class="hint" style="margin-top:10px">提示：图片简历靠 OCR 识别，复杂版式（多栏 / 表格）可能需手动校正；PDF 文字版识别最准。首次识别会下载语言包，稍等几秒。</p>
   </div>
@@ -128,13 +133,16 @@
           <option value="deepseek-reasoner">DeepSeek Reasoner</option>
         </select>
       </div>
+      <div class="field" style="grid-column:1/-1"><label>CORS 代理地址（可选，解决浏览器跨域）</label>
+        <input type="text" id="aiProxy" placeholder="如 https://你的名字.workers.dev/?url=（自建 Cloudflare Worker）" autocomplete="off">
+      </div>
     </div>
     <div class="btns">
       <button class="ghost" onclick="saveAiKey()">保存 Key</button>
       <button class="ghost" onclick="clearAiKey()">清除 Key</button>
       <span class="hint" id="aiStatus"></span>
     </div>
-    <p class="note">说明：解析时仅把简历文字（图片则发送图片）发给对应官方 API，Key 仅在请求头中、只去官方服务器。可随时「清除 Key」关闭 AI。图片类简历若所选模型支持多模态将直接看图，否则先 OCR 抽文字再走文本解析。</p>
+    <p class="note">⚠ 隐私提示：大模型官方接口不支持浏览器直连，需经「CORS 代理」转发。填写代理后，<b>简历内容会经过该代理服务器</b>（官方 API 仍只收到简历文字）。默认可用公共代理快速体验；若简历含敏感信息，建议自建私有代理（如 Cloudflare Worker）并填入其地址。可随时「清除 Key」关闭 AI。图片类简历若所选模型支持多模态将直接看图，否则先 OCR 抽文字再走文本解析。</p>
   </div>
 
   <div class="card">
@@ -328,7 +336,7 @@ function extract(text,i){
 }
 
 /* ---------- AI 解析层（DeepSeek / 多模态，Key 仅存本机） ---------- */
-const AI_KEY_STORE="hr_ai_key", AI_MODEL_STORE="hr_ai_model";
+const AI_KEY_STORE="hr_ai_key", AI_MODEL_STORE="hr_ai_model", AI_PROXY_STORE="hr_ai_proxy";
 function getAiKey(){return (localStorage.getItem(AI_KEY_STORE)||"").trim();}
 function getAiModel(){return (localStorage.getItem(AI_MODEL_STORE)||"deepseek-chat").trim();}
 function aiEnabled(){return getAiKey().length>0;}
@@ -337,17 +345,48 @@ function saveAiKey(){
   if(!k){alert("请输入 Key");return;}
   localStorage.setItem(AI_KEY_STORE,k);
   localStorage.setItem(AI_MODEL_STORE,document.getElementById('aiModel').value);
-  document.getElementById('aiStatus').textContent="✅ Key 已保存（仅存本机）";
+  localStorage.setItem(AI_PROXY_STORE,document.getElementById('aiProxy').value.trim());
+  let msg="✅ 已保存（Key 与代理仅存本机）";
+  const p=getAiProxy();
+  if(p){ msg+=" ｜ 代理将请求："+aiApiUrl(getAiModel()); }
+  document.getElementById('aiStatus').textContent=msg;
+  if(p){ testProxy().then(t=>{ document.getElementById('aiStatus').textContent=msg+" ｜ "+t; }); }
+}
+async function testProxy(){
+  const p=getAiProxy();
+  if(!p) return "⚠ 未填写 CORS 代理（AI 无法跨域调用）";
+  // 探测真实链路：代理 → 官方 API（GET 到官方会返回 405/401，能收到响应即说明代理通）
+  const url=aiApiUrl(getAiModel());
+  try{
+    const r=await fetch(url,{method:"GET"});
+    // 任何响应都说明代理链路通（405/401 是官方对无Key/GET的正常拒绝，证明请求已送达）
+    return "✅ 代理连通（官方返回 "+r.status+"，链路通；真正解析会用 POST+你的Key）";
+  }catch(e){
+    if(/Failed to fetch|NetworkError/i.test(e.message||"")){
+      return "⚠ 代理不可达：Cloudflare Worker 没部署成功或仍是默认模板。请确认①编辑器代码已整段替换为代理代码并 Deploy；②浏览器直开「"+p+"」显示「✅ CORS 代理已部署成功」";
+    }
+    return "⚠ 代理不可达："+(e.message||e);
+  }
 }
 function clearAiKey(){
-  localStorage.removeItem(AI_KEY_STORE);localStorage.removeItem(AI_MODEL_STORE);
+  localStorage.removeItem(AI_KEY_STORE);localStorage.removeItem(AI_MODEL_STORE);localStorage.removeItem(AI_PROXY_STORE);
   document.getElementById('aiKey').value="";
+  document.getElementById('aiProxy').value="";
   document.getElementById('aiStatus').textContent="已清除，将使用本地规则解析";
 }
 const MULTIMODAL=new Set(["gpt-4o","qwen-vl-max","gpt-4-vision-preview"]);
+function getAiProxy(){return (localStorage.getItem(AI_PROXY_STORE)||"").trim();}
 function aiApiUrl(model){
-  if(model.startsWith("qwen"))return "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
-  return "https://api.deepseek.com/chat/completions";
+  const base = model.startsWith("qwen")
+    ? "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+    : "https://api.deepseek.com/chat/completions";
+  const proxy=getAiProxy();
+  if(!proxy) return base;
+  const enc=encodeURIComponent(base);
+  if(proxy.includes("?url=")) return proxy + enc;
+  if(proxy.endsWith("=")) return proxy + enc;
+  if(proxy.endsWith("/")) return proxy + "?url=" + enc;
+  return proxy + "/?url=" + enc;
 }
 async function callAI(text,imgBase64){
   const key=getAiKey(),model=getAiModel();
@@ -360,19 +399,35 @@ async function callAI(text,imgBase64){
   content.push({type:"text",text:userText});
   const body={model, messages:[
     {role:"system",content:sys},
-    {role:"user",content:imgBase64?content:{type:"text",content:userText}}
+    {role:"user",content:imgBase64?content:userText}
   ], response_format:{type:"json_object"}, temperature:0};
-  const res=await fetch(aiApiUrl(model),{
-    method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
-    body:JSON.stringify(body)
-  });
-  if(!res.ok)throw new Error("API "+res.status);
+  let res;
+  try{
+    res=await fetch(aiApiUrl(model),{
+      method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+      body:JSON.stringify(body)
+    });
+  }catch(e){
+    const proxyOn=!!getAiProxy();
+    let hint=/Failed to fetch|NetworkError|CORS/i.test(e.message)
+      ? (proxyOn
+          ? "已配置代理仍跨域/不通：请确认「代理将请求」里的地址能在浏览器打开且显示「✅ 代理已部署成功」，并检查网络"
+          : "未配置 CORS 代理，浏览器直连官方 API 被跨域(CORS)拦截。请在「CORS 代理地址」填你的 Cloudflare Worker（形如 https://xxx.workers.dev/?url=）后保存")
+      : e.message;
+    throw new Error("网络层："+hint);
+  }
+  if(!res.ok){
+    let detail="";
+    try{const er=await res.json();detail=er.error&&er.error.message||JSON.stringify(er).slice(0,120);}catch(_){}
+    throw new Error("API "+res.status+(detail?(" · "+detail):""));
+  }
   const j=await res.json();
   const s=j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;
   if(!s)throw new Error("空响应");
   return JSON.parse(s);
 }
 // 返回抽取结果对象，或 null（需降级本地）
+let LAST_AI_ERR="";
 async function extractWithAI(text,imgURL){
   if(!aiEnabled())return null;
   try{
@@ -396,6 +451,7 @@ async function extractWithAI(text,imgURL){
     r._ai=true;
     return r;
   }catch(e){
+    LAST_AI_ERR=e.message;
     console.warn("AI 解析失败，降级本地：",e);
     return null;
   }
@@ -455,17 +511,35 @@ function computeFit(){
   });
 }
 
-function parseAll(){
+async function parseAll(){
   const txt=document.getElementById('raw').value;
   if(!txt.trim()){alert("请先粘贴简历文本，或先上传文件");return;}
-  data=splitResumes(txt).map((p,i)=>extract(p,i));
+  const parts=splitResumes(txt);
+  data=[];
+  const stat=document.getElementById('stat');
+  if(aiEnabled())setStat(stat,'info',"🤖 AI 解析中…");
+  for(const p of parts){
+    await addCandidateFromText(p,null,null);
+  }
   refresh();
+  if(!data.length){setStat(stat,'err',"未解析出任何简历，检查文本格式");return;}
+  if(aiEnabled()){
+    const usedAi=data.some(d=>d._ai);
+    if(usedAi)setStat(stat,'ok',"🤖 已用 AI 解析 "+data.length+" 份");
+    else setStat(stat,'err',"⚠ AI 解析失败，已用本地规则。"+(LAST_AI_ERR?("原因："+LAST_AI_ERR):"检查 Key / 代理地址 / 网络"));
+  }else{
+    setStat(stat,'info',"已解析 "+data.length+" 份简历（本地规则）");
+  }
 }
 function refresh(){
-  if(!data.length){document.getElementById('stat').textContent="";return;}
+  if(!data.length)return;
   computeFit();renderTable();
   document.getElementById('resultCard').style.display="";
-  document.getElementById('stat').textContent="已解析 "+data.length+" 份简历";
+}
+function setStat(el,kind,msg){
+  if(!el)return;
+  el.textContent=msg;
+  el.className="statbar s-"+kind;
 }
 function recompute(){
   if(!data.length)return;
@@ -570,6 +644,7 @@ function initAiSkillUI(){
   const k=getAiKey();
   document.getElementById('aiKey').value=k;
   document.getElementById('aiModel').value=getAiModel();
+  document.getElementById('aiProxy').value=getAiProxy();
   document.getElementById('aiStatus').textContent=k?("✅ Key 已保存（"+getAiModel()+"）"):"未填 Key，使用本地规则解析";
   document.getElementById('skillLib').value=SKILLS.join("、");
   document.getElementById('skillLibStat').textContent="当前 "+SKILLS.length+" 个词";
@@ -657,6 +732,15 @@ async function ingestFiles(files){
     }
   }
   refresh();
+  const stat=document.getElementById('stat');
+  if(!data.length){setStat(stat,'err',"未解析出任何简历");return;}
+  if(aiEnabled()){
+    const usedAi=data.some(d=>d._ai);
+    if(usedAi)setStat(stat,'ok',"🤖 已用 AI 解析 "+data.length+" 份");
+    else setStat(stat,'err',"⚠ AI 解析失败，已用本地规则。"+(LAST_AI_ERR?("原因："+LAST_AI_ERR):"检查 Key / 代理地址 / 网络"));
+  }else{
+    setStat(stat,'info',"已解析 "+data.length+" 份简历（本地规则）");
+  }
 }
 async function extractPdf(file){
   if(!pdfjsLib.GlobalWorkerOptions.workerSrc)pdfjsLib.GlobalWorkerOptions.workerSrc=PDF_WORKER;
