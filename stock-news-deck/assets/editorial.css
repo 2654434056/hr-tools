@@ -1,0 +1,156 @@
+/* ============================================================
+   Market Pulse · Financial Editorial Design System
+   花叔 design · 财经编辑风（暖纸底 / 衬线大标题 / 中国红强调）
+   报头母题：masthead + dateline + 数据栏 + 大字引语
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;300;400;500;600;700;900&family=Inter:wght@300;400;500;600&display=swap');
+
+:root{
+  --paper:#F4F0E6;        /* 暖骨白 */
+  --paper-2:#EDE8DA;      /* 略深纸 */
+  --ink:#16130D;          /* 暖墨黑 */
+  --ink-soft:#3A352B;
+  --muted:#8A8275;        /* 暖灰 */
+  --red:#D7261E;          /* 中国红 · 红涨 */
+  --red-deep:#9E1B15;
+  --hair:rgba(22,19,13,0.14);
+  --hair-strong:rgba(22,19,13,0.32);
+  --serif:'Noto Serif SC','Songti SC','Source Han Serif SC','STSong',serif;
+  --sans:'Inter',-apple-system,'PingFang SC','Helvetica Neue',sans-serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+html,body{height:100%;}
+body{
+  font-family:var(--serif);
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+
+/* ── 画布：固定 1920×1080 ── */
+.slide{
+  position:relative;
+  width:1920px;height:1080px;
+  background:var(--paper);
+  overflow:hidden;
+}
+.slide.ink{ background:var(--ink); color:var(--paper); }
+.slide.ink .muted{ color:rgba(244,240,230,0.6); }
+.slide.ink .hair{ background:rgba(244,240,230,0.18); }
+.slide.ink .kicker{ color:#EF6B63; }
+
+/* ── 报头 masthead ── */
+.masthead{
+  display:flex; align-items:flex-end; justify-content:space-between;
+  padding:46px 96px 18px;
+  border-bottom:2px solid var(--ink);
+}
+.slide.ink .masthead{ border-bottom-color:rgba(244,240,230,0.5); }
+.masthead .name{
+  font-family:var(--serif); font-weight:700;
+  font-size:30px; letter-spacing:.02em; line-height:1;
+}
+.masthead .name .zh{ font-weight:900; margin-right:14px; }
+.masthead .dateline{
+  font-family:var(--sans); font-size:15px; font-weight:500;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+}
+.slide.ink .masthead .dateline{ color:rgba(244,240,230,0.55); }
+
+/* ── 通用文字 ── */
+.kicker{
+  font-family:var(--sans); font-size:15px; font-weight:600;
+  letter-spacing:.26em; text-transform:uppercase; color:var(--red);
+}
+.muted{ color:var(--muted); }
+.hair{ height:1px; background:var(--hair); border:0; }
+.hair-strong{ height:2px; background:var(--hair-strong); border:0; }
+
+.display{
+  font-family:var(--serif); font-weight:700; line-height:.98;
+  letter-spacing:-.01em;
+}
+.display-xl{ font-size:148px; }
+.display-l{ font-size:104px; }
+.display-m{ font-size:72px; }
+
+.num{
+  font-family:var(--serif); font-weight:900;
+  font-variant-numeric:tabular-nums; line-height:.9;
+  letter-spacing:-.02em;
+}
+.num-red{ color:var(--red); }
+.slide.ink .num-red{ color:#FF5B52; }
+
+.lead{
+  font-family:var(--serif); font-weight:300;
+  font-size:30px; line-height:1.5; color:var(--ink-soft);
+}
+.slide.ink .lead{ color:rgba(244,240,230,0.82); }
+
+.body{
+  font-family:var(--serif); font-weight:400;
+  font-size:23px; line-height:1.62; color:var(--ink-soft);
+}
+.slide.ink .body{ color:rgba(244,240,230,0.78); }
+
+.sans-label{
+  font-family:var(--sans); font-size:14px; font-weight:600;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+}
+.slide.ink .sans-label{ color:rgba(244,240,230,0.55); }
+
+/* ── 底部署名 ── */
+.byline{
+  position:absolute; left:96px; right:96px; bottom:40px;
+  display:flex; justify-content:space-between; align-items:center;
+  font-family:var(--sans); font-size:14px; letter-spacing:.1em;
+  color:var(--muted);
+}
+.slide.ink .byline{ color:rgba(244,240,230,0.5); }
+.byline .red-dot{ color:var(--red); }
+
+/* ── 数据栏（横向条）── */
+.bars{ display:flex; flex-direction:column; gap:26px; }
+.bar-row{ display:grid; grid-template-columns:340px 1fr 200px; align-items:center; gap:28px; }
+.bar-row .lbl{ font-family:var(--sans); font-size:20px; font-weight:600; letter-spacing:.04em; }
+.bar-track{ position:relative; height:46px; background:rgba(22,19,13,0.06); border-radius:2px; overflow:hidden; }
+.bar-fill{ position:absolute; left:0; top:0; bottom:0; background:var(--red); border-radius:2px; }
+.bar-val{ font-family:var(--serif); font-weight:900; font-size:40px; font-variant-numeric:tabular-nums; text-align:right; color:var(--red); }
+
+/* ── 三列 ── */
+.col3{ display:grid; grid-template-columns:repeat(3,1fr); gap:0; }
+.col3 > div{ padding:0 48px; border-left:1px solid var(--hair); }
+.col3 > div:first-child{ padding-left:0; border-left:0; }
+
+/* ── 快讯卡 ── */
+.notes-grid{ display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:1fr; gap:22px; }
+.note{
+  border:1px solid var(--hair); padding:30px 32px; display:flex; flex-direction:column; gap:14px;
+  background:rgba(255,255,255,0.35);
+}
+.note .tag{ font-family:var(--sans); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--red); }
+.note .t{ font-family:var(--serif); font-weight:700; font-size:30px; line-height:1.2; }
+.note .d{ font-family:var(--serif); font-size:19px; line-height:1.5; color:var(--ink-soft); }
+.note .big{ font-family:var(--serif); font-weight:900; font-size:50px; color:var(--red); font-variant-numeric:tabular-nums; }
+
+/* ── 数字英雄块 ── */
+.stat{ display:flex; flex-direction:column; gap:10px; }
+.stat .v{ font-family:var(--serif); font-weight:900; font-size:120px; line-height:.86; font-variant-numeric:tabular-nums; }
+.stat .v.red{ color:var(--red); }
+.stat .c{ font-family:var(--sans); font-size:16px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+
+/* ── 引语 ── */
+.pullquote{
+  font-family:var(--serif); font-weight:300; font-size:64px; line-height:1.28;
+  letter-spacing:-.005em;
+}
+.pullquote em{ font-style:italic; font-weight:500; color:var(--red); }
+
+/* 内容边距 */
+.pad{ padding:48px 96px 96px; }
+.pad-top{ padding-top:54px; }
