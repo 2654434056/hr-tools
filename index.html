@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR 小工具箱 · 送给你的</title>
+<style>
+  :root{--green:#00a05a;--green-d:#00864b;--bg:#eef4f1;--card:#fff;--ink:#1d2b26;--sub:#6b7d76}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+  header{background:linear-gradient(135deg,var(--green),#19b86e);color:#fff;padding:46px 20px 40px;text-align:center}
+  header .badge{display:inline-block;background:rgba(255,255,255,.18);padding:5px 14px;border-radius:30px;font-size:13px;margin-bottom:14px}
+  header h1{margin:0;font-size:26px;letter-spacing:.5px}
+  header p{margin:10px auto 0;max-width:520px;opacity:.92;font-size:14px;line-height:1.7}
+  .wrap{max-width:920px;margin:-22px auto 40px;padding:0 18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+  .tool{display:block;text-decoration:none;color:inherit;background:var(--card);border-radius:16px;
+        padding:22px;box-shadow:0 8px 30px rgba(0,90,60,.10);transition:.18s;border:1px solid transparent}
+  .tool:hover{transform:translateY(-4px);box-shadow:0 14px 40px rgba(0,90,60,.16);border-color:#cdeede}
+  .ico{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+       font-size:24px;background:#eafaf1;margin-bottom:14px}
+  .tool h3{margin:0 0 6px;font-size:17px}
+  .tool p{margin:0;font-size:13px;color:var(--sub);line-height:1.6}
+  .tag{display:inline-block;margin-top:12px;font-size:12px;background:#f1f7f4;color:var(--green-d);
+       padding:3px 10px;border-radius:20px}
+  footer{text-align:center;color:var(--sub);font-size:12px;padding:0 20px 30px;line-height:1.7}
+  footer b{color:var(--green-d)}
+</style>
+</head>
+<body>
+<header>
+  <div class="badge">🎁 为你准备的 HR 效率工具箱</div>
+  <h1>HR 小工具箱</h1>
+  <p>三只单文件小工具，帮你把重复活儿变快一点。<br>支持 AI 增强解析（填自己的 Key 后更准、能读花哨 PDF），所有数据只在你的浏览器里，放心用。</p>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <a class="tool" href="简历解析.html">
+      <div class="ico">📄</div>
+      <h3>简历解析 · 候选人对比</h3>
+      <p>粘贴多份简历，本地自动抽取；填 Key 后由 AI 增强解析（更准、能读花哨 PDF），生成可编辑对比表，一键导出 CSV。</p>
+      <span class="tag">招聘提效 · AI 增强</span>
+    </a>
+    <a class="tool" href="招聘漏斗看板.html">
+      <div class="ico">📊</div>
+      <h3>招聘漏斗看板</h3>
+      <p>投递→筛选→面试→Offer→入职转化漏斗，加月度入职离职趋势，汇报好用。</p>
+      <span class="tag">数据看板</span>
+    </a>
+    <a class="tool" href="面试评估打分表.html">
+      <div class="ico">⭐</div>
+      <h3>面试评估打分表</h3>
+      <p>按维度设权重、多位面试官打分，自动算加权总分与录用建议，可复制报告。</p>
+      <span class="tag">结构化评估</span>
+    </a>
+  </div>
+</div>
+
+<footer>
+  全部工具由正一为你做好 · 数据本地保存于本浏览器<br>
+  喜欢哪个想加功能（比如生日提醒、Offer 生成器），随时告诉他 😊
+</footer>
+</body>
+</html>

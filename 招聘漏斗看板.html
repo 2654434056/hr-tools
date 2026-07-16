@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>招聘漏斗看板</title>
+<script src="vendor/echarts/echarts.min.js"></script>
+<style>
+  :root{
+    --green:#00a05a; --green-d:#00864b; --blue:#2f6fed;
+    --bg:#f4f7f6; --card:#fff; --ink:#1d2b26; --sub:#6b7d76; --line:#e4ebe8;
+    --shadow:0 6px 24px rgba(0,90,60,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+  header{background:linear-gradient(120deg,var(--green),#19b86e);color:#fff;padding:22px 20px}
+  header h1{margin:0;font-size:20px;letter-spacing:.5px}
+  header p{margin:4px 0 0;opacity:.9;font-size:13px}
+  .wrap{max-width:1000px;margin:0 auto;padding:18px}
+  .card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:18px}
+  .card h2{margin:0 0 14px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card h2::before{content:"";width:4px;height:16px;background:var(--green);border-radius:3px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--sub)}
+  .field input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-size:14px;
+       transition:.15s;background:#fbfdfc}
+  .field input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(0,160,90,.12)}
+  .chart{width:100%;height:380px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th,td{padding:9px 10px;text-align:center;border-bottom:1px solid var(--line)}
+  th{color:var(--sub);font-weight:600;background:#fafdfb}
+  td.name{text-align:left;font-weight:600}
+  .rate{color:var(--green);font-weight:700}
+  .rate.bad{color:#e0533d}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  button{border:none;border-radius:9px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:600;
+       transition:.15s;background:var(--green);color:#fff}
+  button:hover{background:var(--green-d)}
+  button.ghost{background:#eef4f1;color:var(--green-d)}
+  button.ghost:hover{background:#e2ece8}
+  .note{font-size:12px;color:var(--sub);margin-top:10px}
+  .pill{display:inline-block;background:#eafaf1;color:var(--green-d);font-size:12px;
+       padding:3px 10px;border-radius:20px;margin-left:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>招聘漏斗看板</h1>
+  <p>投递 → 筛选 → 面试 → Offer → 入职，转化率与人员流动一目了然 · 数据仅保存在本浏览器</p>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>漏斗各阶段人数<span class="pill" id="overallPill">总转化率 —</span></h2>
+    <div class="grid" id="stageInputs"></div>
+    <div class="btns">
+      <button class="ghost" onclick="resetFunnel()">恢复示例</button>
+    </div>
+    <div id="funnelChart" class="chart" style="margin-top:14px"></div>
+  </div>
+
+  <div class="card">
+    <h2>阶段转化率</h2>
+    <table id="convTable">
+      <thead><tr><th>阶段</th><th>人数</th><th>较上一阶段</th><th>占投递比</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>月度入职 / 离职趋势</h2>
+    <div class="grid" id="monthInputs" style="margin-bottom:6px"></div>
+    <div class="btns">
+      <button class="ghost" onclick="resetMonths()">恢复示例</button>
+    </div>
+    <div id="trendChart" class="chart" style="margin-top:14px"></div>
+    <p class="note">提示：所有数字均可直接修改，图表与表格会实时更新，并自动保存在本浏览器，下次打开仍在。</p>
+  </div>
+</div>
+
+<script>
+const STAGES = ["简历投递","简历筛选通过","进入面试","发放Offer","实际入职"];
+const MONTHS = ["1月","2月","3月","4月","5月","6月"];
+const KEY_F = "hr_funnel_stages", KEY_M = "hr_funnel_months";
+
+const defaultStages = [1200,480,220,90,70];
+const defaultMonths = [
+  {hire:42,leave:18},{hire:38,leave:22},{hire:51,leave:20},
+  {hire:47,leave:25},{hire:60,leave:19},{hire:55,leave:23}
+];
+
+let stages = load(KEY_F, defaultStages);
+let months = load(KEY_M, defaultMonths);
+
+const funnelChart = echarts.init(document.getElementById('funnelChart'));
+const trendChart  = echarts.init(document.getElementById('trendChart'));
+
+function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v??def;}catch(e){return def;}}
+function save(){localStorage.setItem(KEY_F,JSON.stringify(stages));
+  localStorage.setItem(KEY_M,JSON.stringify(months));}
+
+/* ---- 阶段输入 ---- */
+function renderStageInputs(){
+  const box=document.getElementById('stageInputs');box.innerHTML="";
+  STAGES.forEach((s,i)=>{
+    const d=document.createElement('div');d.className='field';
+    d.innerHTML=`<label>${s}</label><input type="number" min="0" value="${stages[i]}" data-i="${i}">`;
+    box.appendChild(d);
+  });
+  box.querySelectorAll('input').forEach(inp=>{
+    inp.oninput=()=>{stages[+inp.dataset.i]=Math.max(0,+inp.value||0);update();save();};
+  });
+}
+
+/* ---- 月度输入 ---- */
+function renderMonthInputs(){
+  const box=document.getElementById('monthInputs');box.innerHTML="";
+  MONTHS.forEach((m,i)=>{
+    const d=document.createElement('div');d.className='field';
+    d.innerHTML=`<label>${m} · 入职</label><input type="number" min="0" value="${months[i].hire}" data-i="${i}" data-k="hire">`;
+    box.appendChild(d);
+    const d2=document.createElement('div');d2.className='field';
+    d2.innerHTML=`<label>${m} · 离职</label><input type="number" min="0" value="${months[i].leave}" data-i="${i}" data-k="leave">`;
+    box.appendChild(d2);
+  });
+  box.querySelectorAll('input').forEach(inp=>{
+    inp.oninput=()=>{months[+inp.dataset.i][inp.dataset.k]=Math.max(0,+inp.value||0);update();save();};
+  });
+}
+
+/* ---- 转化率表 ---- */
+function renderConvTable(){
+  const tb=document.querySelector('#convTable tbody');tb.innerHTML="";
+  const top=stages[0]||1;
+  STAGES.forEach((s,i)=>{
+    const v=stages[i];
+    const prev= i>0 ? stages[i-1] : v;
+    const step = i>0 ? (prev>0 ? (v/prev*100) : 0) : 100;
+    const overall = v/top*100;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="name">${s}</td><td>${v}</td>
+      <td class="rate ${step<40?'bad':''}">${i===0?'—':step.toFixed(1)+'%'}</td>
+      <td>${overall.toFixed(1)}%</td>`;
+    tb.appendChild(tr);
+  });
+  const ov=(stages[stages.length-1]/(stages[0]||1)*100);
+  document.getElementById('overallPill').textContent="总转化率 "+ov.toFixed(1)+"%";
+}
+
+/* ---- 图表 ---- */
+function renderFunnel(){
+  funnelChart.setOption({
+    tooltip:{trigger:'item',formatter:p=>`${p.name}<br/>人数：${p.value}`},
+    color:['#00a05a','#19b86e','#4cc98c','#7fd9aa','#aee9c9'],
+    series:[{
+      type:'funnel',sort:'none',gap:2,left:'8%',right:'8%',top:10,bottom:10,
+      label:{show:true,position:'inside',formatter:'{b}\n{c}',color:'#fff',fontSize:13,fontWeight:600},
+      labelLine:{show:false},
+      data:STAGES.map((s,i)=>({name:s,value:stages[i]}))
+    }]
+  });
+}
+function renderTrend(){
+  trendChart.setOption({
+    tooltip:{trigger:'axis'},
+    legend:{data:['入职','离职','净增长'],top:0},
+    grid:{left:40,right:20,top:36,bottom:30},
+    xAxis:{type:'category',data:MONTHS},
+    yAxis:{type:'value'},
+    series:[
+      {name:'入职',type:'bar',data:months.map(m=>m.hire),itemStyle:{color:'#00a05a',borderRadius:[4,4,0,0]}},
+      {name:'离职',type:'bar',data:months.map(m=>m.leave),itemStyle:{color:'#e0533d',borderRadius:[4,4,0,0]}},
+      {name:'净增长',type:'line',data:months.map(m=>m.hire-m.leave),smooth:true,
+       itemStyle:{color:'#2f6fed'},lineStyle:{width:3},symbolSize:7}
+    ]
+  });
+}
+
+function update(){renderConvTable();renderFunnel();renderTrend();}
+function resetFunnel(){stages=[...defaultStages];renderStageInputs();update();save();}
+function resetMonths(){months=defaultMonths.map(m=>({...m}));renderMonthInputs();update();save();}
+
+window.addEventListener('resize',()=>{funnelChart.resize();trendChart.resize();});
+renderStageInputs();renderMonthInputs();update();
+</script>
+</body>
+</html>

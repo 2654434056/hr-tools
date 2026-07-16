@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>简历解析 · 候选人对比</title>
+<style>
+  :root{
+    --green:#00a05a; --green-d:#00864b; --blue:#2f6fed; --amber:#c47e00; --red:#e0533d;
+    --bg:#f4f7f6; --card:#fff; --ink:#1d2b26; --sub:#6b7d76; --line:#e4ebe8;
+    --shadow:0 6px 24px rgba(0,90,60,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+  header{background:linear-gradient(120deg,var(--green),#19b86e);color:#fff;padding:22px 20px}
+  header h1{margin:0;font-size:20px;letter-spacing:.5px}
+  header p{margin:4px 0 0;opacity:.9;font-size:13px}
+  .wrap{max-width:1100px;margin:0 auto;padding:18px}
+  .card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:18px}
+  .card h2{margin:0 0 12px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card h2::before{content:"";width:4px;height:16px;background:var(--green);border-radius:3px}
+  textarea{width:100%;min-height:150px;padding:12px;border:1px solid var(--line);border-radius:10px;
+    font-size:13.5px;font-family:ui-monospace,Menlo,Consolas,monospace;resize:vertical;background:#fbfdfc;line-height:1.5}
+  textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(0,160,90,.12)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--sub)}
+  .field input,.field select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font-size:14px;background:#fbfdfc}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(0,160,90,.12)}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  button{border:none;border-radius:9px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:600;transition:.15s;background:var(--green);color:#fff}
+  button:hover{background:var(--green-d)}
+  button.ghost{background:#eef4f1;color:var(--green-d)}
+  button.ghost:hover{background:#e2ece8}
+  .hint{font-size:12px;color:var(--sub)}
+  .tableScroll{overflow:auto}
+  table{border-collapse:collapse;font-size:13px;width:100%;min-width:560px}
+  th,td{padding:9px 10px;border:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:#fafdfb;color:var(--sub);font-weight:600;position:sticky;top:0}
+  td.field{background:#fafdfb;font-weight:600;white-space:nowrap;color:var(--ink)}
+  td input{border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%;font-size:13px;background:#fff}
+  td input:focus{outline:none;border-color:var(--green)}
+  .tag{display:inline-block;background:#eafaf1;color:var(--green-d);font-size:11.5px;
+       padding:2px 8px;border-radius:20px;margin:2px 3px 0 0}
+  .tag.miss{background:#fdecea;color:var(--red)}
+  .note{font-size:12px;color:var(--sub);margin-top:10px}
+  .pill{display:inline-block;background:#eafaf1;color:var(--green-d);font-size:12px;padding:3px 10px;border-radius:20px}
+  .ok{color:var(--green-d);font-weight:700}
+  .fitbar{height:8px;border-radius:6px;background:#eee;overflow:hidden;margin-top:4px}
+  .fitbar>span{display:block;height:100%}
+  .badge{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:20px;margin:2px 3px 0 0;font-weight:600}
+  .badge.no{background:#fdecea;color:var(--red)}
+  .badge.warn{background:#fff4e0;color:var(--amber)}
+  .rank{font-size:13px;margin:4px 0}
+  .rank b{color:var(--green-d)}
+  .row-red{background:#fff6f4}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:22px 16px;text-align:center;cursor:pointer;transition:.15s;background:#fbfdfc;color:var(--ink)}
+  .drop:hover{border-color:var(--green);background:#f1faf6}
+  .drop .big{font-size:30px;line-height:1}
+  .drop b{color:var(--green-d)}
+  .drop .hint{margin-top:6px}
+  .fstatus{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+  .fstatus .fi{display:flex;align-items:center;gap:10px;font-size:12.5px;background:#fafdfb;border:1px solid var(--line);border-radius:8px;padding:7px 11px}
+  .fstatus .nm{flex:0 0 auto;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fstatus .bar{flex:1;height:6px;border-radius:4px;background:#eee;overflow:hidden;min-width:60px}
+  .fstatus .bar>span{display:block;height:100%;background:var(--green);width:0;transition:.2s}
+  .fstatus .st{flex:0 0 auto;font-size:12px;color:var(--sub)}
+  .fstatus .st.ok{color:var(--green-d);font-weight:700}
+  .fstatus .st.err{color:var(--red);font-weight:700}
+  .divider{margin:14px 0;color:var(--sub);font-size:12px;text-align:center}
+  .fstatus .mini{margin-left:auto;border:none;background:var(--green);color:#fff;border-radius:7px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600}
+  .fstatus .mini:hover{background:var(--green-d)}
+  .modal{position:fixed;inset:0;background:rgba(20,40,32,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal-box{background:#fff;border-radius:14px;max-width:940px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .modal-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:700}
+  .modal-head .ghost{margin-left:auto}
+  .modal-body{display:flex;gap:16px;padding:16px;overflow:auto}
+  .imgwrap{position:relative;flex:1 1 auto;min-width:0;background:#0e0e0e;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+  .imgwrap img{max-width:100%;max-height:62vh;display:block}
+  .selbox{position:absolute;border:2px dashed #ffd54a;background:rgba(255,213,74,.20);pointer-events:none}
+  .modal-side{flex:0 0 300px;display:flex;flex-direction:column;gap:10px}
+  .modal-side textarea{flex:1;min-height:200px}
+  @media(max-width:720px){.modal-body{flex-direction:column}.modal-side{flex:1 1 auto}}
+  .statbar{display:inline-block;font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;line-height:1.2;margin-left:2px}
+  .statbar.s-info{background:#e8f1ff;color:#1a5fd6;border:1px solid #cfe0ff}
+  .statbar.s-ok{background:#e7f8ee;color:#0a8a48;border:1px solid #bde9cd}
+  .statbar.s-err{background:#fdecec;color:#c0392b;border:1px solid #f5c6c6}
+  .statbar:empty{display:none}
+</style>
+<script defer src="vendor/pdfjs/pdf.min.js"></script>
+<script defer src="vendor/tesseract/tesseract.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>简历解析 · 候选人对比</h1>
+  <p>上传 PDF / 图片简历或粘贴文本，自动抽取关键信息、按招聘条件算契合度、并标出就业限制风险 · 解析全程只在你浏览器本地完成</p>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>① 上传 / 粘贴简历</h2>
+    <div id="drop" class="drop" onclick="document.getElementById('fileInput').click()">
+      <div class="big">📥</div>
+      <div><b>点击选择，或把简历拖到这里</b></div>
+      <div class="hint">支持 PDF / PNG / JPG（可多选，一份文件 = 一名候选人）· 文件仅在本地解析，不会上传到任何服务器</div>
+      <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.bmp,.webp" multiple hidden onchange="ingestFiles(this.files)">
+    </div>
+    <div id="fileStatus" class="fstatus"></div>
+    <div class="divider">— 或手动粘贴文本（用分隔线「====」隔开不同候选人） —</div>
+    <textarea id="raw" placeholder="把多份简历文本粘到这里，每份之间空一行并单独一行写四个等号 ====&#10;&#10;例如：&#10;张三&#10;手机：13800000000&#10;邮箱：zhang@xx.com&#10;本科 武汉大学 计算机&#10;3年Java开发经验&#10;====&#10;李四&#10;..."></textarea>
+    <div class="btns">
+      <button onclick="parseAll()">解析粘贴的文本</button>
+      <button class="ghost" onclick="loadDemo()">载入示例</button>
+      <button class="ghost" onclick="clearAll()">清空全部</button>
+      <span id="stat" class="statbar"></span>
+    </div>
+    <p class="hint" style="margin-top:10px">提示：图片简历靠 OCR 识别，复杂版式（多栏 / 表格）可能需手动校正；PDF 文字版识别最准。首次识别会下载语言包，稍等几秒。</p>
+  </div>
+
+  <div class="card">
+    <h2>①-B AI 解析增强（可选，更准）</h2>
+    <p class="hint" style="margin:0 0 12px">填入大模型 API Key 后，花哨简历的识别准确率会大幅提升（学历/院校/技能不再靠规则猜）。<b>Key 只存在你本机浏览器，不会上传、不会进代码。</b> 不填则自动用本地规则解析。</p>
+    <div class="grid2">
+      <div class="field"><label>API Key（如 sk-...，存本机浏览器）</label>
+        <input type="password" id="aiKey" placeholder="sk-..." autocomplete="off">
+      </div>
+      <div class="field"><label>模型</label>
+        <select id="aiModel">
+          <option value="deepseek-chat">DeepSeek Chat（推荐·便宜快）</option>
+          <option value="gpt-4o">GPT-4o（多模态·可看图）</option>
+          <option value="qwen-vl-max">通义千问视觉版（多模态·可看图）</option>
+          <option value="deepseek-reasoner">DeepSeek Reasoner</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1"><label>CORS 代理地址（可选，解决浏览器跨域）</label>
+        <input type="text" id="aiProxy" placeholder="已为你预填共享代理，一般无需修改（也可自建 Cloudflare Worker 替换）" autocomplete="off">
+      </div>
+    </div>
+    <div class="btns">
+      <button class="ghost" onclick="saveAiKey()">保存 Key</button>
+      <button class="ghost" onclick="clearAiKey()">清除 Key</button>
+      <span class="hint" id="aiStatus"></span>
+    </div>
+    <p class="note">⚠ 隐私提示：大模型官方接口不支持浏览器直连，需经「CORS 代理」转发。填写代理后，<b>简历内容会经过该代理服务器</b>（官方 API 仍只收到简历文字）。默认可用公共代理快速体验；若简历含敏感信息，建议自建私有代理（如 Cloudflare Worker）并填入其地址。可随时「清除 Key」关闭 AI。图片类简历若所选模型支持多模态将直接看图，否则先 OCR 抽文字再走文本解析。</p>
+  </div>
+
+  <div class="card">
+    <h2>①-C 技能词库（可自定义）</h2>
+    <p class="hint" style="margin:0 0 12px">默认已含宁德时代岗位常用词。可增删，逗号 / 顿号 / 分号分隔，保存后实时生效。</p>
+    <textarea id="skillLib" style="min-height:90px"></textarea>
+    <div class="btns">
+      <button class="ghost" onclick="saveSkillLib()">保存词库</button>
+      <button class="ghost" onclick="resetSkillLib()">恢复默认</button>
+      <span class="hint" id="skillLibStat"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 招聘条件（算契合度用）</h2>
+    <div class="grid2">
+      <div class="field"><label>学历要求</label>
+        <select id="reqEdu" onchange="recompute()">
+          <option value="0">不限</option>
+          <option value="1">大专及以上</option>
+          <option value="2" selected>本科及以上</option>
+          <option value="3">硕士及以上</option>
+          <option value="4">博士</option>
+        </select></div>
+      <div class="field"><label>工作年限要求（≥ 年）</label>
+        <input type="number" min="0" id="reqYears" value="3" oninput="recompute()"></div>
+      <div class="field"><label>必需技能（逗号分隔，缺一项会扣分）</label>
+        <input type="text" id="reqSkills" value="Java,SQL" oninput="recompute()"></div>
+      <div class="field"><label>加分技能（满足越多越高）</label>
+        <input type="text" id="prefSkills" value="英语,项目管理" oninput="recompute()"></div>
+      <div class="field" style="grid-column:1/-1"><label>院校偏好关键词（可选，简历含此词加分）</label>
+        <input type="text" id="reqSchool" value="" placeholder="如：985、武汉大学、清华" oninput="recompute()"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>③ 就业限制 / 不予录用名单</h2>
+    <div class="grid2">
+      <div class="field" style="grid-column:1/-1"><label>限制企业（简历中出现即标红「不予录用」，逗号分隔）</label>
+        <input type="text" id="blacklist" value="比亚迪,BYD" oninput="recompute()"></div>
+    </div>
+    <p class="hint" style="margin:8px 0 0">例：曾在竞品/关联企业任职的人员，命中任一词即一票否决。匹配不区分大小写。</p>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <h2>④ 候选人对比表 <span class="pill">可直接修改，修正自动抽取结果</span></h2>
+    <div class="tableScroll">
+      <table id="cmpTable"></table>
+    </div>
+    <div class="btns">
+      <button class="ghost" onclick="exportCSV()">导出 CSV</button>
+      <button class="ghost" onclick="copyMD()">复制 Markdown 表</button>
+      <button onclick="sendAllToScorecard()">📤 全部送进面试打分表</button>
+    </div>
+    <div id="rankBox" style="margin-top:14px"></div>
+    <p class="note">说明：解析基于关键词与正则规则，结果可能不完整，请在表格中直接校正后再使用 / 导出。契合度仅作初筛参考。</p>
+  </div>
+</div>
+
+<div id="ocrModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head">🔍 框选修正 — <span id="mTitle"></span>
+      <button class="ghost" onclick="closeModal()">关闭</button>
+    </div>
+    <div class="modal-body">
+      <div id="imgWrap" class="imgwrap">
+        <img id="mImg" alt="简历原图">
+        <div id="selBox" class="selbox" style="display:none"></div>
+      </div>
+      <div class="modal-side">
+        <p class="hint">在图上<b>按住拖动</b>框选识别不准的区域，松手后点「识别选区」对该区域单独重做 OCR。</p>
+        <div class="btns">
+          <button onclick="ocrSelection()">识别选区</button>
+          <button class="ghost" onclick="clearSel()">清除框选</button>
+        </div>
+        <textarea id="mText" placeholder="选区识别结果会显示在这里，可手动修改"></textarea>
+        <div class="btns">
+          <button class="ghost" onclick="applyOcr()">应用到候选人</button>
+          <button class="ghost" onclick="copyOcr()">复制文字</button>
+        </div>
+        <p class="note">「应用到候选人」会把修正文字并入该简历原文并重解析（原有信息保留，仅补充正确内容），随后对比表自动刷新。也可直接在表格里微调。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DEFAULT_SKILL_LIB=[
+  // 通用
+  "Python","Java","C++","C#","Go","JavaScript","TypeScript","SQL","HTML","CSS","Excel","PPT","Word",
+  "SAP","ERP","机器学习","深度学习","数据分析","数据挖掘","项目管理","PMP","六西格玛","精益生产","质量管理","ISO9001",
+  "供应链管理","采购","财务","会计","审计","税务","法律","合规","人力资源","招聘","培训","绩效考核","劳动法",
+  "英语","日语","德语","韩语","AutoCAD","SolidWorks","Matlab","CAD","PowerBI","Tableau","Spark","Hadoop","Kubernetes","Docker","React","Vue",
+  // 宁德时代 / 电池行业岗位词
+  "锂电池","电芯","电池","BMS","电池包","PACK","热管理","续航","充放电","梯次利用","储能","正极","负极","电解液","隔膜",
+  "动力电池","储能电池","电池回收","工艺","研发","量产","良率","设备","产线","质量","FMEA","SPC","IE","精益","安全","EHS",
+  "专利","知识产权","标准","体系","审核","供应商","成本","制造","自动化","嵌入式","控制","算法"
+];
+const SKILL_KEY="hr_skill_lib";
+function loadSkillLib(){
+  try{const v=JSON.parse(localStorage.getItem(SKILL_KEY));if(Array.isArray(v)&&v.length)return v;}catch(e){}
+  return DEFAULT_SKILL_LIB.slice();
+}
+let SKILLS=loadSkillLib();
+function saveSkillLib(){
+  const raw=document.getElementById('skillLib').value;
+  const arr=normList(raw);
+  if(!arr.length){alert("词库不能为空");return;}
+  localStorage.setItem(SKILL_KEY,JSON.stringify(arr));
+  SKILLS=arr;
+  if(data.length){recompute();}
+  document.getElementById('skillLibStat').textContent="已保存，当前 "+arr.length+" 个词";
+}
+function resetSkillLib(){
+  localStorage.removeItem(SKILL_KEY);
+  SKILLS=DEFAULT_SKILL_LIB.slice();
+  document.getElementById('skillLib').value=SKILLS.join("、");
+  document.getElementById('skillLibStat').textContent="已恢复默认词库";
+  if(data.length)recompute();
+}
+const EDU_MAP={"博士后":5,"博士":4,"硕士研究生":3,"研究生":3,"硕士":3,"本科":2,"大专":1,"专科":1};
+
+const FIELDS=["姓名","手机","邮箱","最高学历","毕业院校","工作年限","技能标签","其他亮点"];
+let data=[];
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+function splitResumes(txt){
+  return txt.split(/^\s*={4,}\s*$/m).map(s=>s.trim()).filter(s=>s.length>0);
+}
+function eduLevelOf(str){
+  let lv=0;for(const k in EDU_MAP){if(str.includes(k))lv=Math.max(lv,EDU_MAP[k]);}return lv;
+}
+function normList(s){return (s||"").split(/[,，、;；]/).map(x=>x.trim()).filter(Boolean);}
+function hasSkill(raw,skills,name){const t=raw.toLowerCase();
+  if(skills.some(s=>s.toLowerCase()===name.toLowerCase()))return true;
+  return t.includes(name.toLowerCase());}
+
+function extract(text,i){
+  const r={raw:text};
+  r["手机"]=(text.match(/1[3-9]\d{9}/)||[])[0]||"";
+  r["邮箱"]=(text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)||[])[0]||"";
+  // 学历：扫描全文，取 EDU_MAP 等级最高者（避免「取第一个」漏掉更高学历）
+  const EDU_KEYS=["博士后","博士","硕士研究生","硕士","研究生","本科","大专","专科"];
+  let bestLv=0,bestKey="";
+  EDU_KEYS.forEach(k=>{
+    let idx=text.indexOf(k);
+    while(idx!==-1){ if((EDU_MAP[k]||0)>bestLv){bestLv=EDU_MAP[k]||0;bestKey=k;} idx=text.indexOf(k,idx+k.length); }
+  });
+  let deg=bestKey;
+  r["最高学历"]=deg;
+  // 院校：优先取「最高学历所在行」的学校名，避免错配到低学历阶段的院校
+  let sch="";
+  if(deg){
+    const lines=text.split(/\n/);
+    for(const ln of lines){
+      if(ln.includes(deg)){
+        const m=ln.match(/([\u4e00-\u9fa5]{2,12}(?:大学|学院|理工学院|科技大学|交通大学|工业大学|理工大学|师范大学|财经大学|政法大学|医科大学|农林大学))/);
+        if(m){sch=m[1];break;}
+      }
+    }
+  }
+  if(!sch){
+    sch=(text.match(/([\u4e00-\u9fa5]{2,12}(?:大学|学院|理工学院|科技大学|交通大学|工业大学|理工大学|师范大学|财经大学|政法大学|医科大学|农林大学))/)||[])[0]
+      || (text.match(/([A-Za-z][\w\s.&',-]{2,30}(?:University|Institute|College|School))/)||[])[0]||"";
+  }
+  r["毕业院校"]=sch.trim();
+  // 工作年限：优先「明确年限词」>「经验关键词」> 不瞎猜
+  let yr=null;
+  const m1=text.match(/(?:工作年限|相关经验|工作经验|从业年限)[:：]?\s*(\d+(\.\d)?)/);
+  if(m1){yr=parseFloat(m1[1]);}
+  else{
+    const ctx=[...text.matchAll(/(\d+(?:\.\d)?)\s*年.{0,8}?(?:工作|经验|开发|相关|从业|分析|操刀)/g)]
+      .map(m=>parseFloat(m[1])).filter(n=>n>0&&n<=40);
+    if(ctx.length){yr=Math.max(...ctx);}
+  }
+  // 在读 / 应届推算：若最高学历含「至今」且未匹配到经验词，则视为 0 年（避免把在读时长当工龄）
+  const studying=/至今|在读|预计\s*\d{4}\s*年?\s*(毕业|毕业)/.test(text)
+    && !/(?:工作年限|相关经验|工作经验|从业年限)[:：]?\s*\d/.test(text)
+    && !/(\d+(?:\.\d)?)\s*年.{0,8}?(?:工作|经验|开发|相关|从业|分析)/.test(text);
+  if(studying && yr==null){yr=0;}
+  r["工作年限"]=yr!=null? (Number.isInteger(yr)? yr+" 年" : yr.toFixed(1)+" 年") : "";
+  const found=[];SKILLS.forEach(s=>{if(text.includes(s))found.push(s);});
+  r["技能标签"]=found;
+  let name="";
+  const nm=(text.match(/姓名[:：]\s*([\u4e00-\u9fa5]{2,4})/)||[])[1];
+  if(nm)name=nm;
+  else{const first=text.split(/\n/).map(l=>l.trim()).find(l=>l&&l.length<=4&&/^[\u4e00-\u9fa5]{2,4}$/.test(l));if(first)name=first;}
+  r["姓名"]=name||("候选人"+(i+1));
+  r["其他亮点"]="";
+  return r;
+}
+
+/* ---------- AI 解析层（DeepSeek / 多模态，Key 仅存本机） ---------- */
+const AI_KEY_STORE="hr_ai_key", AI_MODEL_STORE="hr_ai_model", AI_PROXY_STORE="hr_ai_proxy";
+// 预填的共享 CORS 代理（自建 Cloudflare Worker，仅中转、不存 Key，可安全公开共享）
+const AI_PROXY_DEFAULT="https://hr-ai-proxy.2654434056.workers.dev/?url=";
+function getAiKey(){return (localStorage.getItem(AI_KEY_STORE)||"").trim();}
+function getAiModel(){return (localStorage.getItem(AI_MODEL_STORE)||"deepseek-chat").trim();}
+function aiEnabled(){return getAiKey().length>0;}
+function saveAiKey(){
+  const k=document.getElementById('aiKey').value.trim();
+  if(!k){alert("请输入 Key");return;}
+  localStorage.setItem(AI_KEY_STORE,k);
+  localStorage.setItem(AI_MODEL_STORE,document.getElementById('aiModel').value);
+  localStorage.setItem(AI_PROXY_STORE,document.getElementById('aiProxy').value.trim());
+  let msg="✅ 已保存（Key 与代理仅存本机）";
+  const p=getAiProxy();
+  if(p){ msg+=" ｜ 代理将请求："+aiApiUrl(getAiModel()); }
+  document.getElementById('aiStatus').textContent=msg;
+  if(p){ testProxy().then(t=>{ document.getElementById('aiStatus').textContent=msg+" ｜ "+t; }); }
+}
+async function testProxy(){
+  const p=getAiProxy();
+  if(!p) return "⚠ 未填写 CORS 代理（AI 无法跨域调用）";
+  // 探测真实链路：代理 → 官方 API（GET 到官方会返回 405/401，能收到响应即说明代理通）
+  const url=aiApiUrl(getAiModel());
+  try{
+    const r=await fetch(url,{method:"GET"});
+    // 任何响应都说明代理链路通（405/401 是官方对无Key/GET的正常拒绝，证明请求已送达）
+    return "✅ 代理连通（官方返回 "+r.status+"，链路通；真正解析会用 POST+你的Key）";
+  }catch(e){
+    if(/Failed to fetch|NetworkError/i.test(e.message||"")){
+      return "⚠ 代理不可达：Cloudflare Worker 没部署成功或仍是默认模板。请确认①编辑器代码已整段替换为代理代码并 Deploy；②浏览器直开「"+p+"」显示「✅ CORS 代理已部署成功」";
+    }
+    return "⚠ 代理不可达："+(e.message||e);
+  }
+}
+function clearAiKey(){
+  localStorage.removeItem(AI_KEY_STORE);localStorage.removeItem(AI_MODEL_STORE);localStorage.removeItem(AI_PROXY_STORE);
+  document.getElementById('aiKey').value="";
+  document.getElementById('aiProxy').value="";
+  document.getElementById('aiStatus').textContent="已清除，将使用本地规则解析";
+}
+const MULTIMODAL=new Set(["gpt-4o","qwen-vl-max","gpt-4-vision-preview"]);
+function getAiProxy(){ const v=(localStorage.getItem(AI_PROXY_STORE)||"").trim(); return v || AI_PROXY_DEFAULT; }
+function aiApiUrl(model){
+  const base = model.startsWith("qwen")
+    ? "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+    : "https://api.deepseek.com/chat/completions";
+  const proxy=getAiProxy();
+  if(!proxy) return base;
+  const enc=encodeURIComponent(base);
+  if(proxy.includes("?url=")) return proxy + enc;
+  if(proxy.endsWith("=")) return proxy + enc;
+  if(proxy.endsWith("/")) return proxy + "?url=" + enc;
+  return proxy + "/?url=" + enc;
+}
+async function callAI(text,imgBase64){
+  const key=getAiKey(),model=getAiModel();
+  const sys="你是简历解析助手。从简历中抽取字段，严格只返回 JSON，不要解释。字段：name(姓名),phone(手机),email(邮箱),education(最高学历，如 本科/硕士/博士),school(最高学历毕业院校全称),years(工作年限数字，在读或无经验填0),skills(技能标签数组，用中文或通用英文),highlights(其他亮点字符串)。";
+  const userText=imgBase64
+    ? "请解析这张简历图片，返回结构化字段。"
+    : "请解析以下简历文本：\n"+text;
+  const content=[];
+  if(imgBase64)content.push({type:"image_url",image_url:{url:imgBase64}});
+  content.push({type:"text",text:userText});
+  const body={model, messages:[
+    {role:"system",content:sys},
+    {role:"user",content:imgBase64?content:userText}
+  ], response_format:{type:"json_object"}, temperature:0};
+  let res;
+  try{
+    res=await fetch(aiApiUrl(model),{
+      method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+      body:JSON.stringify(body)
+    });
+  }catch(e){
+    const proxyOn=!!getAiProxy();
+    let hint=/Failed to fetch|NetworkError|CORS/i.test(e.message)
+      ? (proxyOn
+          ? "已配置代理仍跨域/不通：请确认「代理将请求」里的地址能在浏览器打开且显示「✅ 代理已部署成功」，并检查网络"
+          : "未配置 CORS 代理，浏览器直连官方 API 被跨域(CORS)拦截。请在「CORS 代理地址」填你的 Cloudflare Worker（形如 https://xxx.workers.dev/?url=）后保存")
+      : e.message;
+    throw new Error("网络层："+hint);
+  }
+  if(!res.ok){
+    let detail="";
+    try{const er=await res.json();detail=er.error&&er.error.message||JSON.stringify(er).slice(0,120);}catch(_){}
+    throw new Error("API "+res.status+(detail?(" · "+detail):""));
+  }
+  const j=await res.json();
+  const s=j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;
+  if(!s)throw new Error("空响应");
+  return JSON.parse(s);
+}
+// 返回抽取结果对象，或 null（需降级本地）
+let LAST_AI_ERR="";
+async function extractWithAI(text,imgURL){
+  if(!aiEnabled())return null;
+  try{
+    let imgBase64=null;
+    if(imgURL && MULTIMODAL.has(getAiModel())){
+      imgBase64=await imgToBase64(imgURL);
+    }
+    const j=await callAI(text,imgBase64);
+    const r={raw:text};
+    r["姓名"]=j.name||"";
+    r["手机"]=j.phone||(text.match(/1[3-9]\d{9}/)||[])[0]||"";
+    r["邮箱"]=j.email||(text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)||[])[0]||"";
+    r["最高学历"]=j.education||"";
+    r["毕业院校"]=j.school||"";
+    let y=j.years;
+    if(y==null||y===""||isNaN(+y))y=null;else y=+y;
+    r["工作年限"]=y!=null?(Number.isInteger(y)?y+" 年":y.toFixed(1)+" 年"):"";
+    r["技能标签"]=Array.isArray(j.skills)?j.skills.map(s=>String(s).trim()).filter(Boolean):[];
+    if(!r["技能标签"].length){SKILLS.forEach(s=>{if(text.includes(s))r["技能标签"].push(s);});}
+    r["其他亮点"]=j.highlights||"";
+    r._ai=true;
+    return r;
+  }catch(e){
+    LAST_AI_ERR=e.message;
+    console.warn("AI 解析失败，降级本地：",e);
+    return null;
+  }
+}
+function imgToBase64(url){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();img.crossOrigin="anonymous";
+    img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+      c.getContext('2d').drawImage(img,0,0);
+      try{resolve(c.toDataURL('image/png'));}catch(e){reject(e);}};
+    img.onerror=reject;img.src=url;
+  });
+}
+
+/* ---------- 契合度 + 限制 ---------- */
+function computeFit(){
+  const cond={
+    edu:+document.getElementById('reqEdu').value,
+    years:+document.getElementById('reqYears').value||0,
+    req:normList(document.getElementById('reqSkills').value),
+    pref:normList(document.getElementById('prefSkills').value),
+    school:document.getElementById('reqSchool').value.trim()
+  };
+  const black=normList(document.getElementById('blacklist').value);
+  data.forEach(d=>{
+    const raw=d.raw||"";
+    const candEdu=eduLevelOf(d["最高学历"]||"");
+    const candYears=parseInt((d["工作年限"]||"0").match(/\d+/)||0)||0;
+    const risks=[];
+    // 就业限制
+    const hitBlack=black.filter(b=>raw.toLowerCase().includes(b.toLowerCase()));
+    if(hitBlack.length) risks.push({type:"no",text:"⛔ 不予录用：曾任职「"+hitBlack.join("、")+"」"});
+    // 硬性条件
+    if(cond.edu>0 && candEdu<cond.edu) risks.push({type:"warn",text:"⚠ 学历未达要求"});
+    if(cond.years>0 && candYears<cond.years) risks.push({type:"warn",text:"⚠ 经验不足（"+candYears+"<"+cond.years+"年）"});
+    d.risks=risks;
+    // 维度
+    const dims=[];
+    if(cond.edu>0) dims.push({w:25,p:candEdu>=cond.edu?1:(cond.edu?candEdu/cond.edu:1)});
+    if(cond.years>0) dims.push({w:25,p:Math.min(1,candYears/cond.years)});
+    if(cond.req.length){
+      const m=cond.req.filter(s=>hasSkill(raw,d["技能标签"],s)).length;
+      d.reqHit=cond.req.filter(s=>hasSkill(raw,d["技能标签"],s));
+      d.reqMiss=cond.req.filter(s=>!hasSkill(raw,d["技能标签"],s));
+      dims.push({w:35,p:m/cond.req.length});
+    }
+    if(cond.school){
+      const ok=raw.includes(cond.school);
+      if(ok) dims.push({w:10,p:1}); else risks.push({type:"warn",text:"⚠ 院校不匹配「"+cond.school+"」"});
+    }
+    if(cond.pref.length){
+      const m=cond.pref.filter(s=>hasSkill(raw,d["技能标签"],s)).length;
+      dims.push({w:15,p:m/cond.pref.length});
+    }
+    const wsum=dims.reduce((a,x)=>a+x.w,0);
+    d.fit = wsum? Math.round(dims.reduce((a,x)=>a+x.w*x.p,0)/wsum*100) : null;
+  });
+}
+
+async function parseAll(){
+  const txt=document.getElementById('raw').value;
+  if(!txt.trim()){alert("请先粘贴简历文本，或先上传文件");return;}
+  const parts=splitResumes(txt);
+  data=[];
+  const stat=document.getElementById('stat');
+  if(aiEnabled())setStat(stat,'info',"🤖 AI 解析中…");
+  for(const p of parts){
+    await addCandidateFromText(p,null,null);
+  }
+  refresh();
+  if(!data.length){setStat(stat,'err',"未解析出任何简历，检查文本格式");return;}
+  if(aiEnabled()){
+    const usedAi=data.some(d=>d._ai);
+    if(usedAi)setStat(stat,'ok',"🤖 已用 AI 解析 "+data.length+" 份");
+    else setStat(stat,'err',"⚠ AI 解析失败，已用本地规则。"+(LAST_AI_ERR?("原因："+LAST_AI_ERR):"检查 Key / 代理地址 / 网络"));
+  }else{
+    setStat(stat,'info',"已解析 "+data.length+" 份简历（本地规则）");
+  }
+}
+function refresh(){
+  if(!data.length)return;
+  computeFit();renderTable();
+  document.getElementById('resultCard').style.display="";
+}
+function setStat(el,kind,msg){
+  if(!el)return;
+  el.textContent=msg;
+  el.className="statbar s-"+kind;
+}
+function recompute(){
+  if(!data.length)return;
+  computeFit();updateComputed();
+}
+
+function renderTable(){
+  const t=document.getElementById('cmpTable');
+  let head="<thead><tr><th class='field'>字段</th>";
+  data.forEach(d=>head+=`<th>${esc(d["姓名"])}</th>`);
+  head+="</tr></thead>";
+  let info="<tbody id='infoBody'>";
+  FIELDS.forEach(f=>{
+    info+=`<tr><td class="field">${f}</td>`;
+    data.forEach((d,ci)=>{
+      if(f==="技能标签"){
+        const tags=(d[f]||[]).map(s=>`<span class="tag">${esc(s)}</span>`).join("")||"—";
+        info+=`<td>${tags}<input type="hidden" data-ci="${ci}" data-f="${f}" value="${esc((d[f]||[]).join(','))}"></td>`;
+      }else{
+        info+=`<td><input data-ci="${ci}" data-f="${f}" value="${esc(d[f]||'')}"></td>`;
+      }
+    });
+    info+="</tr>";
+  });
+  info+="</tbody>";
+  t.innerHTML=head+info+"<tbody id='calcBody'></tbody>";
+  t.querySelectorAll('#infoBody input').forEach(inp=>{
+    inp.oninput=()=>{const ci=+inp.dataset.ci,f=inp.dataset.f;
+      data[ci][f]= f==="技能标签" ? inp.value.split(',').map(s=>s.trim()).filter(Boolean) : inp.value;
+      if(f==="姓名"){t.querySelectorAll('th')[ci+1].textContent=inp.value||("候选人"+(ci+1));}
+      computeFit();updateComputed();};
+  });
+  updateComputed();
+}
+function updateComputed(){
+  const tb=document.querySelector('#calcBody');if(!tb)return;
+  let body="<tr><td class='field'>契合度</td>";
+  data.forEach(d=>{
+    if(d.fit===null){body+=`<td>未设条件</td>`;}
+    else{
+      const col=d.fit>=80?"var(--green)":d.fit>=60?"var(--amber)":"var(--red)";
+      body+=`<td><b style="color:${col}">${d.fit}%</b>
+        <div class="fitbar"><span style="width:${d.fit}%;background:${col}"></span></div>
+        ${(d.reqMiss&&d.reqMiss.length)?`<div style="margin-top:4px">${d.reqMiss.map(s=>`<span class="tag miss">缺 ${s}</span>`).join("")}</div>`:""}</td>`;
+    }
+  });
+  body+="</tr><tr><td class='field'>风险 / 限制</td>";
+  data.forEach(d=>{
+    const blocked=d.risks&&d.risks.some(r=>r.type==="no");
+    const html=(d.risks||[]).map(r=>`<span class="badge ${r.type}">${esc(r.text)}</span>`).join("")||'<span class="ok">✓ 无</span>';
+    body+=`<td class="${blocked?'row-red':''}">${html}</td>`;
+  });
+  body+="</tr>";
+  tb.innerHTML=body;
+  renderRank();
+}
+function renderRank(){
+  const box=document.getElementById('rankBox');
+  const arr=data.filter(d=>d.fit!==null).slice().sort((a,b)=>b.fit-a.fit);
+  if(!arr.length){box.innerHTML="";return;}
+  box.innerHTML="<b>契合度排序：</b><br>"+arr.map((d,i)=>
+    `<div class="rank">${i+1}. ${esc(d["姓名"])} — <b>${d.fit}%</b> ${
+      (d.risks||[]).some(r=>r.type==="no")?'<span class="badge no">不予录用</span>':''}</div>`).join("");
+}
+
+function exportCSV(){
+  let rows=[["字段",...data.map(d=>d["姓名"])]];
+  FIELDS.forEach(f=>rows.push([f,...data.map(d=>Array.isArray(d[f])?d[f].join('|'):d[f])]));
+  rows.push(["契合度",...data.map(d=>d.fit===null?"":d.fit+"%")]);
+  rows.push(["风险",...data.map(d=>(d.risks||[]).map(r=>r.text).join("；"))]);
+  const csv="\uFEFF"+rows.map(r=>r.map(c=>`"${c}"`).join(",")).join("\n");
+  download(csv,"候选人对比.csv","text/csv");
+}
+function copyMD(){
+  let md="| 字段 | "+data.map(d=>d["姓名"]).join(" | ")+" |\n";
+  md+="| --- | "+data.map(()=>"---").join(" | ")+" |\n";
+  FIELDS.forEach(f=>{md+="| "+f+" | "+data.map(d=>Array.isArray(d[f])?d[f].join(", "):d[f]).join(" | ")+" |\n";});
+  md+="| 契合度 | "+data.map(d=>d.fit===null?"":d.fit+"%").join(" | ")+" |\n";
+  md+="| 风险 | "+data.map(d=>(d.risks||[]).map(r=>r.text).join("；")||"无").join(" | ")+" |\n";
+  navigator.clipboard?.writeText(md);alert("Markdown 表格已复制");
+}
+function download(content,name,type){
+  const blob=new Blob([content],{type});const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);
+}
+/* ---------- 三工具数据打通：送进面试打分表 ---------- */
+const SCORECARD_CAND_KEY="hr_candidates_for_scorecard";
+function sendAllToScorecard(){
+  if(!data.length){alert("还没有解析任何简历");return;}
+  const list=data.map(d=>({
+    name:d["姓名"]||"候选人",
+    edu:d["最高学历"]||"", school:d["毕业院校"]||"",
+    years:(d["工作年限"]||"").replace(/\s*年$/,""),
+    skills:Array.isArray(d["技能标签"])?d["技能标签"]:[],
+    fit:d.fit==null?"":d.fit
+  }));
+  localStorage.setItem(SCORECARD_CAND_KEY,JSON.stringify(list));
+  const url="面试评估打分表.html";
+  alert("已发送 "+list.length+" 名候选人到「面试评估打分表」。\n打开该工具即可一键导入（姓名已带过去，技能作为参考）。");
+}
+function initAiSkillUI(){
+  const k=getAiKey();
+  document.getElementById('aiKey').value=k;
+  document.getElementById('aiModel').value=getAiModel();
+  document.getElementById('aiProxy').value=getAiProxy();
+  document.getElementById('aiStatus').textContent=k?("✅ Key 已保存（"+getAiModel()+"）"):"未填 Key，使用本地规则解析";
+  document.getElementById('skillLib').value=SKILLS.join("、");
+  document.getElementById('skillLibStat').textContent="当前 "+SKILLS.length+" 个词";
+}
+function loadDemo(){
+  document.getElementById('raw').value=
+`张明
+手机：13800138000
+邮箱：zhangming@demo.com
+本科 武汉大学 计算机科学与技术
+3年Java开发经验，熟悉Spring Boot、MySQL
+英语 CET-6，有项目管理经验
+====
+李静
+手机：13912345678
+邮箱：lijing@demo.com
+硕士 浙江大学 人力资源管理
+5年招聘经验，擅长校园招聘
+持有HRBP证书，英语专业八级
+====
+王磊
+手机：13700001111
+邮箱：wanglei@demo.com
+博士 清华大学 材料科学与工程
+锂电池电芯研发方向，发表专利3项
+精通Python数据分析
+====
+陈强
+手机：13600002222
+邮箱：chenqiang@byd.com
+本科 比亚迪电气工程
+4年电池工艺经验，熟悉Java与SQL
+曾任职比亚迪，具备丰富产线经验`;
+  parseAll();
+}
+
+/* ---------- 文件上传：PDF 文字提取 / 图片 OCR ---------- */
+const PDF_WORKER='vendor/pdfjs/pdf.worker.min.js';
+function setupDrop(){
+  const dz=document.getElementById('drop');
+  ['dragenter','dragover'].forEach(e=>dz.addEventListener(e,ev=>{
+    ev.preventDefault();dz.style.borderColor='var(--green)';dz.style.background='#f1faf6';}));
+  ['dragleave','drop'].forEach(e=>dz.addEventListener(e,ev=>{
+    ev.preventDefault();dz.style.borderColor='';dz.style.background='';}));
+  dz.addEventListener('drop',ev=>{if(ev.dataTransfer.files&&ev.dataTransfer.files.length)ingestFiles(ev.dataTransfer.files);});
+}
+function fileRow(name){
+  const box=document.getElementById('fileStatus');
+  const el=document.createElement('div');el.className='fi';
+  el.innerHTML=`<span class="nm">📄 ${name}</span><div class="bar"><span></span></div><span class="st">排队中</span>`;
+  box.appendChild(el);return el;
+}
+async function ingestFiles(files){
+  files=[...(files||[])];if(!files.length)return;
+  for(const f of files){
+    const row=fileRow(f.name);
+    const bar=row.querySelector('.bar>span'),st=row.querySelector('.st');
+    try{
+      let text="";const n=f.name.toLowerCase();
+      const isImg=/\.(png|jpe?g|gif|bmp|webp)$/.test(n);
+      if(n.endsWith('.pdf')){
+        if(!window.pdfjsLib)throw new Error('PDF 解析库未加载，请联网刷新');
+        st.textContent='提取文字…';
+        text=await extractPdf(f);
+      }else if(/\.(png|jpe?g|gif|bmp|webp)$/.test(n)){
+        const useAI=(aiEnabled() && MULTIMODAL.has(getAiModel()));
+        if(useAI){
+          st.textContent='AI 看图解析…';
+          text="@@IMAGE@@";
+        }else{
+          if(!window.Tesseract)throw new Error('OCR 库未加载，请联网刷新');
+          text=await ocrImage(f,p=>{bar.style.width=Math.round(p*100)+'%';st.textContent='识别中 '+Math.round(p*100)+'%';});
+        }
+      }else{throw new Error('不支持的格式');}
+      if(!text.trim())throw new Error('未提取到文字（图片质量或版式问题）');
+      let imgURL=null;
+      if(isImg) imgURL=URL.createObjectURL(f);
+      await addCandidateFromText(text,f.name,imgURL);
+      bar.style.width='100%';st.textContent='✓ 完成';st.className='st ok';
+      if(isImg){const idx=data.length-1;
+        row.insertAdjacentHTML('beforeend','<button class="mini" onclick="openModal('+idx+')">🔍 框选修正</button>');}
+    }catch(e){
+      st.textContent='✗ '+e.message;st.className='st err';
+      bar.style.width='100%';bar.style.background='var(--red)';
+    }
+  }
+  refresh();
+  const stat=document.getElementById('stat');
+  if(!data.length){setStat(stat,'err',"未解析出任何简历");return;}
+  if(aiEnabled()){
+    const usedAi=data.some(d=>d._ai);
+    if(usedAi)setStat(stat,'ok',"🤖 已用 AI 解析 "+data.length+" 份");
+    else setStat(stat,'err',"⚠ AI 解析失败，已用本地规则。"+(LAST_AI_ERR?("原因："+LAST_AI_ERR):"检查 Key / 代理地址 / 网络"));
+  }else{
+    setStat(stat,'info',"已解析 "+data.length+" 份简历（本地规则）");
+  }
+}
+async function extractPdf(file){
+  if(!pdfjsLib.GlobalWorkerOptions.workerSrc)pdfjsLib.GlobalWorkerOptions.workerSrc=PDF_WORKER;
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let txt="";
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const c=await page.getTextContent();
+    txt+=(c.items.map(i=>i.str).join(' '))+"\n";
+  }
+  return txt;
+}
+function ocrImage(file,onprog){
+  if(!window.Tesseract)return Promise.reject(new Error('OCR 库未加载'));
+  // 自托管路径：worker / wasm 核心 / 语言包都从本地 vendor 读取，避免外部 CDN 被墙
+  const opts={
+    workerPath:'vendor/tesseract/worker.min.js',
+    corePath:'vendor/tesseract/tesseract-core.wasm.js',
+    langPath:'vendor/tesseract/lang-data',
+    logger:m=>{if(m.status==='recognizing text'&&onprog)onprog(m.progress);}
+  };
+  return Tesseract.recognize(file,'chi_sim+eng',opts).then(r=>r.data.text);
+}
+async function addCandidateFromText(text,fname,imgURL){
+  text=(text||"").trim();if(!text)return;
+  let d=null;
+  if(aiEnabled()){
+    d=await extractWithAI(text,imgURL);
+  }
+  if(!d){
+    d=extract(text,data.length);
+  }
+  if(!d["姓名"]||d["姓名"].startsWith("候选人")){
+    if(fname){
+      let stem=fname.replace(/\.[^.]+$/,"").replace(/[_-]+/g," ").trim();
+      stem=stem.replace(/^(微信图片|微信|weixin|image|img|截图|screenshot|未命名|untitled|photo)\s*/i,"")
+                .replace(/\b\d{4,}\b/g,"").replace(/\s+/g," ").trim();
+      if(stem)d["姓名"]=stem;
+    }
+    if(!d["姓名"])d["姓名"]="候选人"+(data.length+1);
+  }
+  d._img=imgURL||null; d._fname=fname||"";
+  data.push(d);
+}
+function clearAll(){
+  if(!confirm("确定清空所有已解析的简历？"))return;
+  data.forEach(d=>{if(d._img)URL.revokeObjectURL(d._img);});
+  data=[];
+  document.getElementById('raw').value="";
+  document.getElementById('fileStatus').innerHTML="";
+  document.getElementById('cmpTable').innerHTML="";
+  document.getElementById('rankBox').innerHTML="";
+  document.getElementById('resultCard').style.display="none";
+  document.getElementById('stat').textContent="";
+}
+/* ---------- 图片 OCR 框选修正 ---------- */
+let curIdx=-1, drawing=false, sel=null;
+function openModal(idx){
+  const d=data[idx];
+  if(!d||!d._img){alert('该简历不是图片来源，无法框选修正');return;}
+  curIdx=idx;
+  document.getElementById('mTitle').textContent=d["姓名"]||("候选人"+(idx+1));
+  document.getElementById('mImg').src=d._img;
+  document.getElementById('mText').value="";
+  clearSel();
+  document.getElementById('ocrModal').style.display="flex";
+}
+function closeModal(){document.getElementById('ocrModal').style.display="none";curIdx=-1;clearSel();}
+function clearSel(){sel=null;const s=document.getElementById('selBox');s.style.display='none';s.style.width='0';s.style.height='0';}
+function initSel(){
+  const wrap=document.getElementById('imgWrap');
+  wrap.addEventListener('pointerdown',e=>{
+    drawing=true;const r=wrap.getBoundingClientRect();
+    sel={x:e.clientX-r.left,y:e.clientY-r.top,w:0,h:0};
+    renderSel();e.preventDefault();
+  });
+  wrap.addEventListener('pointermove',e=>{
+    if(!drawing||!sel)return;const r=wrap.getBoundingClientRect();
+    sel.w=e.clientX-r.left-sel.x;sel.h=e.clientY-r.top-sel.y;renderSel();
+  });
+  wrap.addEventListener('pointerup',()=>{drawing=false;});
+  wrap.addEventListener('pointerleave',()=>{drawing=false;});
+}
+function renderSel(){
+  if(!sel)return;const s=document.getElementById('selBox');
+  s.style.display='block';
+  s.style.left=Math.min(sel.x,sel.x+sel.w)+'px';
+  s.style.top=Math.min(sel.y,sel.y+sel.h)+'px';
+  s.style.width=Math.abs(sel.w)+'px';
+  s.style.height=Math.abs(sel.h)+'px';
+}
+function ocrSelection(){
+  if(!sel||!sel.w||!sel.h){alert('请先在图上按住拖动框选一个区域');return;}
+  if(!window.Tesseract){alert('OCR 库未加载，请联网刷新');return;}
+  const img=document.getElementById('mImg');
+  const sx=Math.max(0,sel.x*(img.naturalWidth/img.clientWidth));
+  const sy=Math.max(0,sel.y*(img.naturalHeight/img.clientHeight));
+  const sw=Math.abs(sel.w)*(img.naturalWidth/img.clientWidth);
+  const sh=Math.abs(sel.h)*(img.naturalHeight/img.clientHeight);
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(sw));c.height=Math.max(1,Math.round(sh));
+  c.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,c.width,c.height);
+  const url=c.toDataURL('image/png');
+  const ta=document.getElementById('mText');ta.value='选区识别中…';
+  Tesseract.recognize(url,'chi_sim+eng',{}).then(r=>{ta.value=r.data.text;})
+    .catch(err=>{ta.value='识别失败：'+((err&&err.message)||err);});
+}
+function applyOcr(){
+  const t=document.getElementById('mText').value.trim();
+  if(!t){alert('请先框选并识别，或手动输入要修正的文字');return;}
+  const d=data[curIdx];if(!d)return;
+  d.raw=(d.raw?d.raw+"\n":"")+"[框选修正]\n"+t;
+  refresh();
+  alert('已应用到「'+(d["姓名"]||"候选人")+'」，对比表已刷新（可继续在表格里微调）');
+  closeModal();
+}
+function copyOcr(){
+  const t=document.getElementById('mText').value;
+  if(navigator.clipboard)navigator.clipboard.writeText(t);
+  alert('文字已复制');
+}
+initAiSkillUI();
+initSel();
+setupDrop();
+</script>
+</body>
+</html>
