@@ -89,7 +89,6 @@
   .statbar:empty{display:none}
 </style>
 <script defer src="vendor/pdfjs/pdf.min.js"></script>
-<script defer src="vendor/tesseract/tesseract.min.js"></script>
 </head>
 <body>
 <header>
@@ -115,7 +114,7 @@
       <button class="ghost" onclick="clearAll()">清空全部</button>
       <span id="stat" class="statbar"></span>
     </div>
-    <p class="hint" style="margin-top:10px">提示：图片简历靠 OCR 识别，复杂版式（多栏 / 表格）可能需手动校正；PDF 文字版识别最准。首次识别会下载语言包，稍等几秒。</p>
+    <p class="hint" style="margin-top:10px">提示：PDF 文字版识别最准（本地解析，不上传）。图片简历需启用 AI 多模态识别（在①-B 填 GPT-4o / 通义千问视觉版 Key 后直接看图），或把图片文字粘贴到文本区。</p>
   </div>
 
   <div class="card">
@@ -717,8 +716,7 @@ async function ingestFiles(files){
           st.textContent='AI 看图解析…';
           text="@@IMAGE@@";
         }else{
-          if(!window.Tesseract)throw new Error('OCR 库未加载，请联网刷新');
-          text=await ocrImage(f,p=>{bar.style.width=Math.round(p*100)+'%';st.textContent='识别中 '+Math.round(p*100)+'%';});
+          throw new Error('图片简历需启用 AI 多模态识别：请填写支持多模态的 API Key（GPT-4o / 通义千问视觉版），或在①区粘贴文本');
         }
       }else{throw new Error('不支持的格式');}
       if(!text.trim())throw new Error('未提取到文字（图片质量或版式问题）');
@@ -757,15 +755,10 @@ async function extractPdf(file){
   return txt;
 }
 function ocrImage(file,onprog){
-  if(!window.Tesseract)return Promise.reject(new Error('OCR 库未加载'));
-  // 自托管路径：worker / wasm 核心 / 语言包都从本地 vendor 读取，避免外部 CDN 被墙
-  const opts={
-    workerPath:'vendor/tesseract/worker.min.js',
-    corePath:'vendor/tesseract/tesseract-core.wasm.js',
-    langPath:'vendor/tesseract/lang-data',
-    logger:m=>{if(m.status==='recognizing text'&&onprog)onprog(m.progress);}
-  };
-  return Tesseract.recognize(file,'chi_sim+eng',opts).then(r=>r.data.text);
+  // Cloudflare Pages 单文件限制 25MB，Tesseract 中文包 42MB 无法自托管。
+  // 图片简历 OCR 改为：填了 AI Key 且模型支持多模态 → 已在 ingestFiles 走 AI 看图；
+  // 未填 Key 则本地无 OCR 引擎，提示用户粘贴文本或用多模态模型。
+  return Promise.reject(new Error('未启用 AI 多模态识别：请填写支持多模态的 API Key（如 GPT-4o / 通义千问视觉版），或在①区粘贴简历文本'));
 }
 async function addCandidateFromText(text,fname,imgURL){
   text=(text||"").trim();if(!text)return;
@@ -837,7 +830,6 @@ function renderSel(){
 }
 function ocrSelection(){
   if(!sel||!sel.w||!sel.h){alert('请先在图上按住拖动框选一个区域');return;}
-  if(!window.Tesseract){alert('OCR 库未加载，请联网刷新');return;}
   const img=document.getElementById('mImg');
   const sx=Math.max(0,sel.x*(img.naturalWidth/img.clientWidth));
   const sy=Math.max(0,sel.y*(img.naturalHeight/img.clientHeight));
@@ -847,9 +839,16 @@ function ocrSelection(){
   c.width=Math.max(1,Math.round(sw));c.height=Math.max(1,Math.round(sh));
   c.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,c.width,c.height);
   const url=c.toDataURL('image/png');
-  const ta=document.getElementById('mText');ta.value='选区识别中…';
-  Tesseract.recognize(url,'chi_sim+eng',{}).then(r=>{ta.value=r.data.text;})
-    .catch(err=>{ta.value='识别失败：'+((err&&err.message)||err);});
+  const ta=document.getElementById('mText');
+  // 本地 OCR 引擎已移除（Cloudflare Pages 25MB 单文件限制），框选修正改为：
+  // 若已启用 AI 多模态 → 把选区图发给模型识别；否则提示手动输入
+  if(aiEnabled() && MULTIMODAL.has(getAiModel())){
+    ta.value='选区 AI 识别中…';
+    imgToBase64(url).then(b64=>callAI("",b64)).then(j=>{ta.value=j.text||j.highlights||"（未返回文字）";})
+      .catch(err=>{ta.value='识别失败：'+(err&&err.message||err);});
+  }else{
+    ta.value='请先启用 AI 多模态（①-B 填 GPT-4o / 通义千问视觉版 Key），或在下方手动输入该区域文字';
+  }
 }
 function applyOcr(){
   const t=document.getElementById('mText').value.trim();
