@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/vendor/*",
+    "/index.html",
+    "/简历解析.html",
+    "/招聘漏斗看板.html",
+    "/面试评估打分表.html"
+  ]
+}
