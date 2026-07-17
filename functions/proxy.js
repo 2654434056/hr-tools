@@ -6,7 +6,8 @@
 // 工具端「CORS 代理地址」填写： /proxy/?url=  （相对路径，与工具同域，国内不被墙）
 
 export async function onRequest(context) {
-  const { request, url } = context;
+  const request = context.request;
+  const url = new URL(request.url);
 
   const origin = request.headers.get("Origin") || "*";
   const cors = {
@@ -51,20 +52,30 @@ export async function onRequest(context) {
   // 4) 转发请求（带上原始 method / body / Authorization / Content-Type）
   let resp;
   try {
-    resp = await fetch(target, {
+    const init = {
       method: request.method,
       headers: {
         "Content-Type": request.headers.get("Content-Type") || "application/json",
         "Authorization": request.headers.get("Authorization") || "",
       },
-      body: request.method === "POST" ? await request.text() : undefined,
-    });
+    };
+    if (request.method === "POST") {
+      init.body = await request.text();
+    }
+    resp = await fetch(target, init);
   } catch (e) {
     return new Response("代理转发失败：" + e.message, { status: 502, headers: cors });
   }
 
-  // 5) 把官方返回结果带上 CORS 头透传回浏览器
-  const out = new Response(resp.body, resp);
-  Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v));
+  // 5) 把官方返回结果带上 CORS 头透传回浏览器（用 text 而非流式 body，避免兼容问题）
+  let bodyText;
+  try { bodyText = await resp.text(); } catch (e) { bodyText = ""; }
+  const out = new Response(bodyText, {
+    status: resp.status,
+    headers: {
+      ...cors,
+      "Content-Type": resp.headers.get("Content-Type") || "application/json",
+    },
+  });
   return out;
 }
