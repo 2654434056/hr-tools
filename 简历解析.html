@@ -133,7 +133,7 @@
         </select>
       </div>
       <div class="field" style="grid-column:1/-1"><label>CORS 代理地址（可选，解决浏览器跨域）</label>
-        <input type="text" id="aiProxy" placeholder="已为你预填共享代理，一般无需修改（也可自建 Cloudflare Worker 替换）" autocomplete="off">
+        <input type="text" id="aiProxy" placeholder="已为你预填同域代理 /proxy/?url=，一般无需修改" autocomplete="off">
       </div>
     </div>
     <div class="btns">
@@ -141,7 +141,7 @@
       <button class="ghost" onclick="clearAiKey()">清除 Key</button>
       <span class="hint" id="aiStatus"></span>
     </div>
-    <p class="note">⚠ 隐私提示：大模型官方接口不支持浏览器直连，需经「CORS 代理」转发。填写代理后，<b>简历内容会经过该代理服务器</b>（官方 API 仍只收到简历文字）。默认可用公共代理快速体验；若简历含敏感信息，建议自建私有代理（如 Cloudflare Worker）并填入其地址。可随时「清除 Key」关闭 AI。图片类简历若所选模型支持多模态将直接看图，否则先 OCR 抽文字再走文本解析。</p>
+    <p class="note">⚠ 隐私提示：大模型官方接口不支持浏览器直连，需经「CORS 代理」转发。填写代理后，<b>简历内容会经过该代理服务器</b>（官方 API 仍只收到简历文字）。默认已用同域 Pages Function（/proxy/），国内不被墙；若需更高隐私，可自建私有代理并填入地址。可随时「清除 Key」关闭 AI。图片类简历若所选模型支持多模态将直接看图，否则先 OCR 抽文字再走文本解析。</p>
   </div>
 
   <div class="card">
@@ -336,8 +336,8 @@ function extract(text,i){
 
 /* ---------- AI 解析层（DeepSeek / 多模态，Key 仅存本机） ---------- */
 const AI_KEY_STORE="hr_ai_key", AI_MODEL_STORE="hr_ai_model", AI_PROXY_STORE="hr_ai_proxy";
-// 预填的共享 CORS 代理（自建 Cloudflare Worker，仅中转、不存 Key，可安全公开共享）
-const AI_PROXY_DEFAULT="https://hr-ai-proxy.2654434056.workers.dev/?url=";
+// 默认 AI 代理：同域 Pages Function（/proxy/），国内不被墙；如需私有可改成你的 Worker 或自定义域名
+const AI_PROXY_DEFAULT="/proxy/?url=";
 function getAiKey(){return (localStorage.getItem(AI_KEY_STORE)||"").trim();}
 function getAiModel(){return (localStorage.getItem(AI_MODEL_STORE)||"deepseek-chat").trim();}
 function aiEnabled(){return getAiKey().length>0;}
@@ -364,7 +364,7 @@ async function testProxy(){
     return "✅ 代理连通（官方返回 "+r.status+"，链路通；真正解析会用 POST+你的Key）";
   }catch(e){
     if(/Failed to fetch|NetworkError/i.test(e.message||"")){
-      return "⚠ 代理不可达：Cloudflare Worker 没部署成功或仍是默认模板。请确认①编辑器代码已整段替换为代理代码并 Deploy；②浏览器直开「"+p+"」显示「✅ CORS 代理已部署成功」";
+      return "⚠ 代理不可达：Pages Function 没部署成功。请确认仓库 functions/proxy.js 已推送且部署成功；浏览器直开「"+p+"」应显示「✅ CORS 代理已部署成功」";
     }
     return "⚠ 代理不可达："+(e.message||e);
   }
@@ -413,7 +413,7 @@ async function callAI(text,imgBase64){
     let hint=/Failed to fetch|NetworkError|CORS/i.test(e.message)
       ? (proxyOn
           ? "已配置代理仍跨域/不通：请确认「代理将请求」里的地址能在浏览器打开且显示「✅ 代理已部署成功」，并检查网络"
-          : "未配置 CORS 代理，浏览器直连官方 API 被跨域(CORS)拦截。请在「CORS 代理地址」填你的 Cloudflare Worker（形如 https://xxx.workers.dev/?url=）后保存")
+          : "未配置 CORS 代理，浏览器直连官方 API 被跨域(CORS)拦截。请保持默认代理（/proxy/?url=，同域 Pages Function）即可")
       : e.message;
     throw new Error("网络层："+hint);
   }
